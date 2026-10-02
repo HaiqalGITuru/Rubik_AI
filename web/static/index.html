@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rubik AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="importmap">
+    { "imports": { "three": "/static/vendor/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Rubik AI</h1>
+      <p class="lede">Jaringan saraf yang belajar sendiri menyelesaikan kubus 3x3, tanpa diajari rumus manusia.</p>
+    </div>
+    <dl class="model-info" id="model-info">
+      <div><dt>Training</dt><dd id="info-steps">–</dd></div>
+      <div><dt>Parameter</dt><dd id="info-params">–</dd></div>
+    </dl>
+  </header>
+
+  <main>
+    <section class="stage">
+      <div class="cube-panel">
+        <div class="cube-view" id="cube-view">
+          <p class="status" id="status" role="status">Kubus masih utuh</p>
+          <p class="hint">Seret untuk memutar, gulir untuk zoom</p>
+        </div>
+
+        <div class="controls">
+          <div class="buttons">
+            <button id="btn-scramble" class="btn">Acak kubus</button>
+            <button id="btn-solve" class="btn btn-primary">Selesaikan dengan AI</button>
+            <button id="btn-reset" class="btn btn-quiet">Kembalikan</button>
+          </div>
+          <div class="settings">
+            <label class="field">
+              <span>Kecepatan animasi <output id="speed-value">1x</output></span>
+              <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1">
+            </label>
+            <label class="field">
+              <span>Lebar pencarian</span>
+              <select id="beam">
+                <option value="256">256, paling cepat</option>
+                <option value="1024" selected>1.024, seimbang</option>
+                <option value="4096">4.096, paling teliti</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <form class="scramble-input" id="scramble-form" autocomplete="off">
+          <label for="scramble-text">Tulis atau tempel scramble</label>
+          <div class="input-row">
+            <input id="scramble-text" type="text" spellcheck="false" placeholder="Contoh: R U R' U' F2 D">
+            <button class="btn" type="submit">Terapkan</button>
+          </div>
+          <p class="error" id="scramble-error" role="alert"></p>
+        </form>
+      </div>
+
+      <figure class="network-panel">
+        <canvas id="network" aria-label="Visualisasi aktivasi jaringan saraf"></canvas>
+        <figcaption>
+          Setiap lingkaran adalah neuron asli dari model Anda; makin biru, makin aktif.
+          Angka di atas kolom adalah jumlah neuron di lapisan itu, yang digambar hanya sampelnya.
+          Di kanan, peluang tiap gerakan menurut AI.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="results">
+      <h2>Rumus solusi</h2>
+      <div class="formula">
+        <div class="formula-row">
+          <h3>Scramble</h3>
+          <div class="moves" id="scramble-moves"><span class="empty">Belum diacak</span></div>
+        </div>
+        <div class="formula-row formula-main">
+          <h3>Solusi AI</h3>
+          <div class="moves" id="solution-moves"><span class="empty">Acak kubus, lalu tekan Selesaikan dengan AI</span></div>
+          <button class="btn btn-quiet btn-small" id="btn-copy" disabled>Salin</button>
+        </div>
+        <div class="formula-row">
+          <h3>Kociemba</h3>
+          <div class="moves moves-plain" id="kociemba-moves"><span class="empty">Pembanding muncul setelah AI selesai</span></div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div>
+          <h2>Statistik</h2>
+          <table class="compare">
+            <thead><tr><th></th><th>AI</th><th>Kociemba</th></tr></thead>
+            <tbody id="stats-body">
+              <tr><th>Jumlah langkah</th><td>–</td><td>–</td></tr>
+              <tr><th>Waktu berpikir</th><td>–</td><td>–</td></tr>
+              <tr><th>Posisi yang dievaluasi</th><td>–</td><td>–</td></tr>
+              <tr><th>Rata-rata keyakinan</th><td>–</td><td>–</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h2>Keyakinan AI per langkah</h2>
+          <div class="confidence" id="confidence">
+            <p class="empty">Grafik muncul setelah AI menyelesaikan kubus.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>Riwayat sesi ini</h2>
+      <div class="table-wrap">
+        <table class="history">
+          <thead><tr><th>#</th><th>Scramble</th><th>AI</th><th>Waktu AI</th><th>Kociemba</th><th>Pencarian</th></tr></thead>
+          <tbody id="history-body"><tr class="empty-row"><td colspan="6">Belum ada solusi di sesi ini.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>
