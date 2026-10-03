@@ -58,3 +58,41 @@ def test_benchmark_deterministik():
     assert [c["scramble"] for c in a["cubes"]] == [c["scramble"] for c in b["cubes"]]
     for c in a["cubes"]:
         assert not Cube().apply_sequence(c["scramble"]).is_solved()
+
+
+class _ConstModel:
+    """Model palsu: selalu memprediksi jarak `c` (untuk menguji DeepCubeA tanpa training)."""
+
+    def __init__(self, c=0.0):
+        import torch
+        self.c = c
+        self.p = torch.nn.Parameter(torch.zeros(1))
+
+    def parameters(self):
+        return iter([self.p])
+
+    def eval(self):
+        return self
+
+    def __call__(self, x):
+        import torch
+        return torch.full((x.shape[0], 1), self.c)
+
+
+def test_davi_target():
+    from rubik.deepcubea import davi_targets
+    states = np.stack([Cube().state, Cube().apply("R").state, Cube().apply_sequence("R U").state])
+    # Dengan prediksi jarak 5 untuk semua anak (kecuali yang selesai = 0):
+    t = davi_targets(_ConstModel(5.0), states)
+    assert t[0] == 0.0          # sudah selesai
+    assert t[1] == 1.0          # satu gerakan lagi -> anak selesai -> 1 + 0
+    assert t[2] == 6.0          # tidak ada anak yang selesai -> 1 + 5
+
+
+def test_weighted_astar_menemukan_solusi():
+    pytest.importorskip("torch")
+    from rubik.deepcubea import weighted_astar
+    cube = Cube().apply_sequence("R U F'")
+    res = weighted_astar(_ConstModel(0.0), cube, batch_size=2000, weight=1.0)
+    assert res.solved and len(res.moves) == 3   # h=0, weight=1 -> pencarian optimal
+    assert cube.apply_sequence(res.moves).is_solved()

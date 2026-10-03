@@ -29,6 +29,7 @@ import torch
 from rubik import Cube
 from rubik.benchmark import load_or_create_benchmark
 from rubik.model import load_model
+from rubik.deepcubea import weighted_astar
 from rubik.solver import beam_search, compress_moves
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -44,6 +45,9 @@ def parse_args():
     p.add_argument("--name", default="beam_experiment", help="nama folder hasil di results/")
     p.add_argument("--threads", type=int, default=os.cpu_count())
     p.add_argument("--device", default="cpu", help="cpu / cuda / auto")
+    p.add_argument("--solver", default="beam", choices=["beam", "astar"],
+                   help="beam = EfficientCube (beam search), astar = DeepCubeA (batch weighted A*)")
+    p.add_argument("--weight", type=float, default=0.6, help="bobot g pada A* (DeepCubeA, paper: 0.6)")
     p.add_argument("--plot-only", action="store_true")
     return p.parse_args()
 
@@ -66,20 +70,25 @@ def run(args, bench, out_dir: Path):
     model = load_model(args.model, device=args.device)
     cubes = bench["cubes"][: args.n]
 
+    if args.solver == "astar":
+        solve = lambda cube, width: weighted_astar(model, cube, batch_size=width, weight=args.weight)
+    else:
+        solve = lambda cube, width: beam_search(model, cube, beam_width=width, max_depth=args.max_depth)
+
     # Pemanasan: panggilan pertama PyTorch selalu lebih lambat, jangan sampai ikut terukur
-    warm = Cube().apply_sequence(cubes[0]["scramble"])
-    beam_search(model, warm, beam_width=64, max_depth=5)
+    warm = Cube().apply_sequence("R U F")
+    solve(warm, 64)
 
     for beam in sorted(args.beams):
         todo = [c for c in cubes if (beam, c["id"]) not in done]
         if not todo:
-            print(f"Beam {beam:>6}: sudah selesai, dilewati")
+            print(f"{label_prefix(args)} {beam:>6}: sudah selesai, dilewati")
             continue
-        print(f"\nBeam {beam:>6}: menguji {len(todo)} kubus")
+        print(f"\n{label_prefix(args)} {beam:>6}: menguji {len(todo)} kubus")
         t_start = time.perf_counter()
         for k, item in enumerate(todo, 1):
             cube = Cube().apply_sequence(item["scramble"])
-            res = beam_search(model, cube, beam_width=beam, max_depth=args.max_depth)
+            res = solve(cube, beam)
             htm = compress_moves(res.moves) if res.solved else []
             if res.solved:
                 assert cube.copy().apply_sequence(htm).is_solved(), "solusi tidak valid!"
@@ -99,7 +108,11 @@ def run(args, bench, out_dir: Path):
                   f"  | sisa ~{eta / 60:.1f} mnt")
 
 
-def summarize(raw: list[dict], bench: dict, n: int) -> list[dict]:
+def label_prefix(args) -> str:
+    return "DeepCubeA N=" if args.solver == "astar" else "AI beam"
+
+
+def summarize(raw: list[dict], bench: dict, n: int, prefix: str = "AI beam") -> list[dict]:
     rows = []
     for beam in sorted({int(r["beam"]) for r in raw}):
         rs = [r for r in raw if int(r["beam"]) == beam]
@@ -108,7 +121,7 @@ def summarize(raw: list[dict], bench: dict, n: int) -> list[dict]:
         gaps = np.array([int(r["length_htm"]) - int(r["kociemba_length"]) for r in ok if r["kociemba_length"]])
         times = np.array([float(r["time_sec"]) for r in rs])
         rows.append({
-            "metode": f"AI beam {beam}", "beam": beam, "kubus": len(rs),
+            "metode": f"{prefix} {beam}", "beam": beam, "kubus": len(rs),
             "berhasil_persen": round(100 * len(ok) / len(rs), 1),
             "langkah_rata2": round(lengths.mean(), 2) if len(lengths) else "",
             "langkah_median": float(np.median(lengths)) if len(lengths) else "",
@@ -133,7 +146,7 @@ def summarize(raw: list[dict], bench: dict, n: int) -> list[dict]:
     return rows
 
 
-def plot(raw: list[dict], summary: list[dict], out_dir: Path):
+def plot(raw: list[dict], summary: list[dict], out_dir: Path, xlabel: str = "Lebar beam"):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -141,10 +154,11 @@ def plot(raw: list[dict], summary: list[dict], out_dir: Path):
     plt.rcParams.update({"figure.dpi": 150, "font.size": 10, "axes.spines.top": False,
                          "axes.spines.right": False})
     blue, grey = "#2453E8", "#8A93A3"
-    ai = [s for s in summary if s["metode"].startswith("AI")]
+    ai = [s for s in summary if s["beam"] != ""]
     kc = next((s for s in summary if s["metode"] == "Kociemba"), None)
     beams = [s["beam"] for s in ai]
     labels = [f"{b:,}".replace(",", ".") for b in beams]
+    short = "N" if "A*" in xlabel else "beam"
     x = np.arange(len(beams))
 
     # 1) Ringkasan tiga panel
@@ -152,7 +166,7 @@ def plot(raw: list[dict], summary: list[dict], out_dir: Path):
     ax = axes[0]
     ax.bar(x, [s["berhasil_persen"] for s in ai], color=blue)
     ax.set_xticks(x, labels); ax.set_ylim(0, 105)
-    ax.set_title("Tingkat keberhasilan"); ax.set_ylabel("%"); ax.set_xlabel("Lebar beam")
+    ax.set_title("Tingkat keberhasilan"); ax.set_ylabel("%"); ax.set_xlabel(xlabel)
     for i, s in enumerate(ai):
         ax.text(i, s["berhasil_persen"] + 1.5, f"{s['berhasil_persen']:.0f}%", ha="center", fontsize=9)
 
@@ -161,12 +175,12 @@ def plot(raw: list[dict], summary: list[dict], out_dir: Path):
     if kc:
         ax.axhline(kc["langkah_rata2"], color=grey, ls="--", label=f"Kociemba ({kc['langkah_rata2']})")
     ax.set_xticks(x, labels); ax.set_title("Rata-rata panjang solusi"); ax.set_ylabel("langkah (HTM)")
-    ax.set_xlabel("Lebar beam"); ax.legend(frameon=False, fontsize=8)
+    ax.set_xlabel(xlabel); ax.legend(frameon=False, fontsize=8)
 
     ax = axes[2]
     ax.plot(x, [s["waktu_rata2_dtk"] for s in ai], "o-", color=blue)
     ax.set_yscale("log"); ax.set_xticks(x, labels)
-    ax.set_title("Rata-rata waktu berpikir"); ax.set_ylabel("detik (skala log)"); ax.set_xlabel("Lebar beam")
+    ax.set_title("Rata-rata waktu berpikir"); ax.set_ylabel("detik (skala log)"); ax.set_xlabel(xlabel)
     fig.tight_layout()
     fig.savefig(out_dir / "ringkasan.png")
     plt.close(fig)
@@ -175,7 +189,7 @@ def plot(raw: list[dict], summary: list[dict], out_dir: Path):
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.plot([s["waktu_rata2_dtk"] for s in ai], [s["langkah_rata2"] or np.nan for s in ai], "o-", color=blue)
     for s, lab in zip(ai, labels):
-        ax.annotate(f"beam {lab}", (s["waktu_rata2_dtk"], s["langkah_rata2"] or np.nan),
+        ax.annotate(f"{short} {lab}", (s["waktu_rata2_dtk"], s["langkah_rata2"] or np.nan),
                     textcoords="offset points", xytext=(6, 6), fontsize=8)
     if kc:
         ax.scatter([kc["waktu_rata2_dtk"]], [kc["langkah_rata2"]], color=grey, zorder=3)
@@ -196,7 +210,7 @@ def plot(raw: list[dict], summary: list[dict], out_dir: Path):
                      medianprops={"color": "#18202C", "lw": 1.5})
     for i, patch in enumerate(box["boxes"]):
         patch.set_facecolor(grey if kc and i == len(data) - 1 else "#C9D3E6")
-    ax.set_xticks(range(1, len(data) + 1), [f"beam\n{l}" for l in labels] + (["Kociemba"] if kc else []))
+    ax.set_xticks(range(1, len(data) + 1), [f"{short}\n{l}" for l in labels] + (["Kociemba"] if kc else []))
     ax.set_ylabel("Panjang solusi (HTM)"); ax.set_title("Distribusi panjang solusi")
     fig.tight_layout(); fig.savefig(out_dir / "distribusi_langkah.png"); plt.close(fig)
 
@@ -217,18 +231,18 @@ def main():
     if not raw:
         print("Belum ada hasil.")
         return
-    summary = summarize(raw, bench, args.n)
+    summary = summarize(raw, bench, args.n, label_prefix(args))
     with open(out_dir / "summary.csv", "w", newline="") as f:
         w = csv.DictWriter(f, list(summary[0].keys()))
         w.writeheader(); w.writerows(summary)
-    plot(raw, summary, out_dir)
+    plot(raw, summary, out_dir, "Ukuran batch A* (N)" if args.solver == "astar" else "Lebar beam")
 
     print("\n================= RINGKASAN =================")
-    print(f"{'Metode':<16}{'Berhasil':>9}{'Langkah':>9}{'vs Koc.':>9}{'Waktu':>11}")
+    print(f"{'Metode':<18}{'Berhasil':>9}{'Langkah':>9}{'vs Koc.':>9}{'Waktu':>11}")
     for s in summary:
         lang = f"{s['langkah_rata2']}" if s["langkah_rata2"] != "" else "-"
         gap = f"{s['selisih_vs_kociemba']:+}" if s["selisih_vs_kociemba"] != "" else "-"
-        print(f"{s['metode']:<16}{s['berhasil_persen']:>8}%{lang:>9}{gap:>9}{s['waktu_rata2_dtk']:>9} dtk")
+        print(f"{s['metode']:<18}{s['berhasil_persen']:>8}%{lang:>9}{gap:>9}{s['waktu_rata2_dtk']:>9} dtk")
     print(f"\nHasil tersimpan di {out_dir}")
 
 

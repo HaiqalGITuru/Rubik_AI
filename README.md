@@ -106,3 +106,16 @@ setelah Colab terputus. Model ringan hasil ekspor (`cubenet_large_infer.pt`, ~29
 python -m web.server --model models/cubenet_large_infer.pt
 python -m scripts.beam_experiment --model models/cubenet_large_infer.pt --name beam_experiment_large_cpu
 ```
+
+## DeepCubeA (pendekatan kedua)
+
+`rubik/deepcubea.py` berisi DeepCubeA versi diperkecil: value network (perkiraan jarak ke kondisi
+selesai) yang dilatih dengan Deep Approximate Value Iteration, dan solver batch weighted A*.
+
+```bash
+python -m scripts.train_deepcubea --steps 3000                          # uji cepat di CPU
+python -m scripts.beam_experiment --model models/deepcubea_large_infer.pt --solver astar --beams 100 1000 --name deepcubea_cpu
+python -m scripts.compare_results beam_experiment_large:"EfficientCube besar" deepcubea_large:"DeepCubeA besar"
+```
+
+Training model besar: `notebooks/train_deepcubea_colab.ipynb` di Google Colab.
