@@ -1,0 +1,6 @@
+metode,beam,kubus,berhasil_persen,langkah_rata2,langkah_median,langkah_min,langkah_maks,selisih_vs_kociemba,waktu_rata2_dtk,waktu_maks_dtk,posisi_dievaluasi_rata2
+AI beam 256,256,100,100.0,23.18,23.0,18,27,2.48,0.079,0.162,5196
+AI beam 1024,1024,100,100.0,22.21,22.0,18,26,1.51,0.212,0.243,19243
+AI beam 4096,4096,100,100.0,21.5,21.0,16,25,0.8,0.679,0.813,71052
+AI beam 16384,16384,100,100.0,21.01,21.0,16,24,0.31,2.791,3.12,267162
+Kociemba,,100,100.0,20.7,21.0,18,22,0,0.0137,0.1144,
