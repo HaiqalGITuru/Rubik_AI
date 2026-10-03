@@ -7,11 +7,18 @@ rubik-ai/
 ├── rubik/              # Paket utama: simulator kubus
 │   ├── __init__.py
 │   ├── moves.py        # Definisi & permutasi 18 gerakan (dihitung dari geometri 3D)
-│   └── cube.py         # Kelas Cube: apply, scramble, is_solved, one-hot, render
+│   ├── cube.py         # Kelas Cube: apply, scramble, is_solved, one-hot, render
+│   ├── data.py         # Generator data training (self-supervised)
+│   ├── model.py        # CubeNet (MLP + residual block, PyTorch)
+│   └── solver.py       # Beam search yang dipandu jaringan saraf
 ├── tests/
 │   └── test_cube.py    # Unit test simulator (47 test)
 ├── scripts/
-│   └── demo.py         # Demo simulator + pembanding Kociemba
+│   ├── demo.py         # Demo simulator + pembanding Kociemba
+│   ├── solve.py        # Solusi Kociemba untuk kubus fisik
+│   ├── train.py        # Training model
+│   ├── evaluate.py     # Evaluasi AI vs Kociemba
+│   └── solve_ai.py     # Solusi AI untuk kubus fisik
 ├── data/               # (nanti) data hasil generate
 ├── models/             # (nanti) bobot model hasil training
 ├── notebooks/          # (opsional) eksperimen Jupyter
@@ -63,7 +70,39 @@ x = cube.to_one_hot()          # input jaringan saraf, shape (324,)
 
 ## Roadmap
 1. [x] Simulator kubus + unit test
-2. [ ] Generator data (scramble acak)
-3. [ ] Model jaringan saraf (PyTorch)
-4. [ ] Solver: beam search
-5. [ ] Evaluasi vs Kociemba
+2. [x] Generator data (scramble acak)
+3. [x] Model jaringan saraf (PyTorch)
+4. [x] Solver: beam search
+5. [ ] Training penuh & evaluasi vs Kociemba
+
+## Training & Evaluasi
+
+```bash
+python -m scripts.train --steps 2000        # uji cepat (~10-20 menit di CPU)
+python -m scripts.train                     # training penuh (20.000 langkah)
+python -m scripts.train --resume            # lanjutkan setelah Ctrl+C
+python -m scripts.evaluate                  # AI vs Kociemba
+python -m scripts.solve_ai "R U R' U'"      # coba dengan kubus fisik
+```
+
+Log training tersimpan di `models/cubenet_log.csv` (bisa dibuat grafik untuk laporan).
+
+## Website (lokal)
+
+```bash
+pip install fastapi uvicorn
+python -m web.server        # browser terbuka otomatis di http://127.0.0.1:8000
+```
+
+Server hanya bisa diakses dari laptop sendiri (127.0.0.1). Tekan Ctrl+C untuk berhenti.
+
+## Training model besar (Google Colab)
+
+Buka `notebooks/train_colab.ipynb` di Google Colab (File → Upload notebook), aktifkan GPU T4,
+lalu jalankan sel dari atas. Checkpoint tersimpan di Google Drive dan training bisa dilanjutkan
+setelah Colab terputus. Model ringan hasil ekspor (`cubenet_large_infer.pt`, ~29 MB) dipakai di laptop:
+
+```bash
+python -m web.server --model models/cubenet_large_infer.pt
+python -m scripts.beam_experiment --model models/cubenet_large_infer.pt --name beam_experiment_large_cpu
+```

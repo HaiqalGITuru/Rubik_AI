@@ -43,6 +43,7 @@ def parse_args():
     p.add_argument("--max-depth", type=int, default=40)
     p.add_argument("--name", default="beam_experiment", help="nama folder hasil di results/")
     p.add_argument("--threads", type=int, default=os.cpu_count())
+    p.add_argument("--device", default="cpu", help="cpu / cuda / auto")
     p.add_argument("--plot-only", action="store_true")
     return p.parse_args()
 
@@ -62,7 +63,7 @@ def run(args, bench, out_dir: Path):
             csv.DictWriter(f, RAW_FIELDS).writeheader()
 
     torch.set_num_threads(args.threads)
-    model = load_model(args.model)
+    model = load_model(args.model, device=args.device)
     cubes = bench["cubes"][: args.n]
 
     # Pemanasan: panggilan pertama PyTorch selalu lebih lambat, jangan sampai ikut terukur

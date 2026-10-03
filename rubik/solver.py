@@ -55,9 +55,11 @@ def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_d
     paths = np.zeros((1, 0), dtype=np.int64)     # (B, depth)
     scores = np.zeros(1, dtype=np.float64)       # (B,)
     nodes = 0
+    device = next(model.parameters()).device     # CPU atau GPU, mengikuti model
 
     for _ in range(max_depth):
-        logp = torch.log_softmax(model(torch.from_numpy(states).long()), dim=1).numpy()
+        x = torch.from_numpy(states).to(device).long()
+        logp = torch.log_softmax(model(x).float(), dim=1).cpu().numpy()
         nodes += len(states)
 
         cand = scores[:, None] + logp            # (B, 12)

@@ -52,9 +52,16 @@ def save_model(model: CubeNet, path: str, **extra) -> None:
     torch.save({"config": model.config, "state_dict": model.state_dict(), **extra}, path)
 
 
-def load_model(path: str) -> CubeNet:
+def pick_device(name: str = "auto") -> torch.device:
+    """'auto' -> GPU (cuda) kalau tersedia, selain itu CPU."""
+    if name == "auto":
+        name = "cuda" if torch.cuda.is_available() else "cpu"
+    return torch.device(name)
+
+
+def load_model(path: str, device: str = "cpu") -> CubeNet:
     ckpt = torch.load(path, map_location="cpu")
     model = CubeNet(**ckpt["config"])
     model.load_state_dict(ckpt["state_dict"])
     model.eval()
-    return model
+    return model.to(pick_device(device))
