@@ -4,3 +4,4 @@ kociemba>=1.2   # solver non-AI sebagai pembanding (baseline)
 torch>=2.2      # jaringan saraf (versi CPU sudah cukup)
 fastapi>=0.110   # server website lokal
 uvicorn>=0.27
+matplotlib>=3.7  # grafik hasil eksperimen

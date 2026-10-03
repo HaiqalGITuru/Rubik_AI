@@ -49,3 +49,12 @@ def test_beam_search_dengan_model_acak():
     res = beam_search(model, cube, beam_width=200, max_depth=4)
     assert res.solved  # beam 200 cukup untuk mencakup semua jalur 2 langkah
     assert cube.apply_sequence(res.moves).is_solved()
+
+
+def test_benchmark_deterministik():
+    """Set kubus uji harus selalu sama untuk seed yang sama."""
+    from rubik.benchmark import create_benchmark
+    a, b = create_benchmark(5), create_benchmark(5)
+    assert [c["scramble"] for c in a["cubes"]] == [c["scramble"] for c in b["cubes"]]
+    for c in a["cubes"]:
+        assert not Cube().apply_sequence(c["scramble"]).is_solved()
