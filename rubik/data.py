@@ -26,32 +26,33 @@ NUM_MOVES = len(QUARTER_MOVES)
 INVERSE_IDX = np.array([QUARTER_MOVES.index(inverse_move(m)) for m in QUARTER_MOVES])
 
 
-def apply_moves_batch(states: np.ndarray, move_idx: np.ndarray) -> np.ndarray:
+def apply_moves_batch(states: np.ndarray, move_idx: np.ndarray, perms: np.ndarray = QUARTER_PERMS) -> np.ndarray:
     """Terapkan satu gerakan berbeda ke setiap state dalam batch.
 
-    states:   (N, 54) uint8
-    move_idx: (N,)    indeks gerakan di QUARTER_MOVES
+    states:   (N, S) uint8   (S = 54 untuk 3x3, 96 untuk 4x4)
+    move_idx: (N,)    indeks gerakan
     """
-    return np.take_along_axis(states, QUARTER_PERMS[move_idx], axis=1)
+    return np.take_along_axis(states, perms[move_idx], axis=1)
 
 
-def _random_moves(n: int, depth: int, rng: np.random.Generator) -> np.ndarray:
+def _random_moves(n: int, depth: int, rng: np.random.Generator,
+                  num_moves: int = NUM_MOVES, inverse_idx: np.ndarray = INVERSE_IDX) -> np.ndarray:
     """Buat (n, depth) gerakan acak tanpa langkah sia-sia:
     - tidak langsung membatalkan gerakan sebelumnya (R lalu R')
     - tidak memutar wajah yang sama 3x berturut-turut (R R R = R')
     """
     moves = np.empty((n, depth), dtype=np.int64)
     for t in range(depth):
-        m = rng.integers(NUM_MOVES, size=n)
+        m = rng.integers(num_moves, size=n)
         while True:
             bad = np.zeros(n, dtype=bool)
             if t >= 1:
-                bad |= m == INVERSE_IDX[moves[:, t - 1]]
+                bad |= m == inverse_idx[moves[:, t - 1]]
             if t >= 2:
                 bad |= (m == moves[:, t - 1]) & (m == moves[:, t - 2])
             if not bad.any():
                 break
-            m[bad] = rng.integers(NUM_MOVES, size=int(bad.sum()))
+            m[bad] = rng.integers(num_moves, size=int(bad.sum()))
         moves[:, t] = m
     return moves
 
@@ -60,6 +61,7 @@ def generate_batch(
     num_scrambles: int,
     max_depth: int,
     rng: np.random.Generator | None = None,
+    puzzle=None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Buat satu batch data training.
 
@@ -69,15 +71,20 @@ def generate_batch(
         depths: (num_scrambles * max_depth,)    int64  -> jarak scramble (1..max_depth)
     """
     rng = rng or np.random.default_rng()
-    moves = _random_moves(num_scrambles, max_depth, rng)
+    if puzzle is None:  # default: kubus 3x3
+        perms, inv, solved = QUARTER_PERMS, INVERSE_IDX, SOLVED_STATE
+    else:               # misalnya NxNPuzzle untuk 4x4
+        perms, inv, solved = puzzle.quarter_perms, puzzle.inverse_idx, puzzle.solved
+    S = len(solved)
+    moves = _random_moves(num_scrambles, max_depth, rng, len(perms), inv)
 
-    states = np.tile(SOLVED_STATE, (num_scrambles, 1))
-    X = np.empty((max_depth, num_scrambles, 54), dtype=np.uint8)
+    states = np.tile(solved, (num_scrambles, 1))
+    X = np.empty((max_depth, num_scrambles, S), dtype=np.uint8)
     y = np.empty((max_depth, num_scrambles), dtype=np.int64)
     for t in range(max_depth):
-        states = apply_moves_batch(states, moves[:, t])
+        states = apply_moves_batch(states, moves[:, t], perms)
         X[t] = states
-        y[t] = INVERSE_IDX[moves[:, t]]
+        y[t] = inv[moves[:, t]]
 
     depths = np.repeat(np.arange(1, max_depth + 1), num_scrambles)
-    return X.reshape(-1, 54), y.reshape(-1), depths
+    return X.reshape(-1, S), y.reshape(-1), depths

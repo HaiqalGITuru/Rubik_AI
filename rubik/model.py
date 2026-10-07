@@ -30,18 +30,20 @@ class ResidualBlock(nn.Module):
 
 
 class CubeNet(nn.Module):
-    def __init__(self, hidden1: int = 1024, hidden2: int = 512, num_blocks: int = 4, num_moves: int = 12):
+    def __init__(self, hidden1: int = 1024, hidden2: int = 512, num_blocks: int = 4, num_moves: int = 12,
+                 num_stickers: int = 54):
         super().__init__()
-        self.config = dict(hidden1=hidden1, hidden2=hidden2, num_blocks=num_blocks, num_moves=num_moves)
+        self.config = dict(hidden1=hidden1, hidden2=hidden2, num_blocks=num_blocks, num_moves=num_moves,
+                           num_stickers=num_stickers)
         self.input = nn.Sequential(
-            nn.Linear(54 * 6, hidden1), nn.BatchNorm1d(hidden1), nn.ReLU(),
+            nn.Linear(num_stickers * 6, hidden1), nn.BatchNorm1d(hidden1), nn.ReLU(),
             nn.Linear(hidden1, hidden2), nn.BatchNorm1d(hidden2), nn.ReLU(),
         )
         self.blocks = nn.Sequential(*[ResidualBlock(hidden2) for _ in range(num_blocks)])
         self.output = nn.Linear(hidden2, num_moves)
 
     def forward(self, states: torch.Tensor) -> torch.Tensor:
-        """states: LongTensor (B, 54) berisi warna 0..5 -> logits (B, 12)"""
+        """states: LongTensor (B, stiker) berisi warna 0..5 -> logits (B, jumlah gerakan)"""
         x = F.one_hot(states.long(), num_classes=6).float().flatten(1)
         x = self.input(x)
         x = self.blocks(x)

@@ -119,3 +119,15 @@ python -m scripts.compare_results beam_experiment_large:"EfficientCube besar" de
 ```
 
 Training model besar: `notebooks/train_deepcubea_colab.ipynb` di Google Colab.
+
+## Kubus 4x4 (eksplorasi)
+
+`rubik/nxn.py` berisi simulator kubus N x N generik (terverifikasi identik dengan simulator 3x3).
+Pada 4x4 tidak ada pusat yang tetap, jadi **sudut kuning-biru-oranye dikunci di bawah-belakang-kiri**
+dan AI memakai 18 gerakan lapisan dari sisi U, R, F (notasi SiGN: U, 2U, 3U, R, 2R, ...).
+
+```bash
+python -m scripts.train --puzzle 4 --max-depth 30 --save models/cubenet_4x4.pt   # training
+python -m scripts.eval_4x4 --model models/cubenet_4x4.pt --beams 256 1024        # evaluasi per tingkat kesulitan
+python -m scripts.solve_ai_4x4 --depth 15                                         # coba dengan kubus fisik
+```

@@ -33,8 +33,8 @@ class SolveResult:
 
 
 def _is_solved_batch(states: np.ndarray) -> np.ndarray:
-    faces = states.reshape(-1, 6, 9)
-    return np.all(faces == faces[:, :, 4:5], axis=(1, 2))
+    faces = states.reshape(len(states), 6, -1)
+    return np.all(faces == faces[:, :, :1], axis=(1, 2))
 
 
 def _dedupe(states: np.ndarray) -> np.ndarray:
@@ -51,6 +51,13 @@ def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_d
     if cube.is_solved():
         return SolveResult(True, [], 0.0, 0)
 
+    puzzle = getattr(cube, "puzzle", None)  # CubeN (4x4) membawa spesifikasinya sendiri
+    if puzzle is None:
+        perms, inverse_idx, names = QUARTER_PERMS, INVERSE_IDX, QUARTER_MOVES
+    else:
+        perms, inverse_idx, names = puzzle.quarter_perms, puzzle.inverse_idx, puzzle.quarter_moves
+    n_moves = len(names)
+
     states = cube.state[None, :].copy()          # (B, 54)
     paths = np.zeros((1, 0), dtype=np.int64)     # (B, depth)
     scores = np.zeros(1, dtype=np.float64)       # (B,)
@@ -64,22 +71,22 @@ def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_d
 
         cand = scores[:, None] + logp            # (B, 12)
         if paths.shape[1] > 0:                   # larang membatalkan gerakan terakhir
-            cand[np.arange(len(states)), INVERSE_IDX[paths[:, -1]]] = -np.inf
+            cand[np.arange(len(states)), inverse_idx[paths[:, -1]]] = -np.inf
 
         flat = cand.ravel()
         k = min(beam_width, np.isfinite(flat).sum())
         top = np.argpartition(-flat, k - 1)[:k]
         top = top[np.argsort(-flat[top])]        # urutkan dari skor terbaik
 
-        parent, move = top // NUM_MOVES, top % NUM_MOVES
-        new_states = np.take_along_axis(states[parent], QUARTER_PERMS[move], axis=1)
+        parent, move = top // n_moves, top % n_moves
+        new_states = np.take_along_axis(states[parent], perms[move], axis=1)
         new_paths = np.concatenate([paths[parent], move[:, None]], axis=1)
         new_scores = flat[top]
 
         solved = _is_solved_batch(new_states)
         if solved.any():
             best = np.flatnonzero(solved)[0]
-            moves = [QUARTER_MOVES[i] for i in new_paths[best]]
+            moves = [names[i] for i in new_paths[best]]
             return SolveResult(True, moves, time.perf_counter() - t0, nodes)
 
         keep = _dedupe(new_states)
@@ -89,10 +96,15 @@ def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_d
 
 
 def compress_moves(moves: list[str]) -> list[str]:
-    """Gabungkan gerakan berurutan pada wajah yang sama: R R -> R2 (lebih mudah dibaca)."""
+    """Gabungkan gerakan berurutan pada lapisan yang sama: R R -> R2, 2U 2U -> 2U2."""
     out: list[tuple[str, int]] = []
     for m in moves:
-        face, amount = m[0], 3 if m.endswith("'") else 1
+        if m.endswith("'"):
+            face, amount = m[:-1], 3
+        elif len(m) > 1 and m.endswith("2") and not m[:-1].isdigit():
+            face, amount = m[:-1], 2
+        else:
+            face, amount = m, 1
         if out and out[-1][0] == face:
             amount = (out[-1][1] + amount) % 4
             out.pop()
