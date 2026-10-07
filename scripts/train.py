@@ -50,6 +50,9 @@ def parse_args():
     p.add_argument("--eval-every", type=int, default=1000, help="evaluasi + simpan checkpoint setiap N langkah")
     p.add_argument("--save", default="models/cubenet.pt")
     p.add_argument("--resume", action="store_true")
+    p.add_argument("--time-limit", type=float, default=0,
+                   help="berhenti rapi + simpan checkpoint setelah N jam (0 = tanpa batas). "
+                        "Berguna untuk Kaggle (maks 12 jam per sesi) dan Colab.")
     p.add_argument("--threads", type=int, default=os.cpu_count())
     p.add_argument("--seed", type=int, default=0)
     return p.parse_args()
@@ -128,6 +131,7 @@ def main():
 
     model.train()
     step = start_step
+    t_start = time.perf_counter()
     t_log = time.perf_counter()
     loss_sum = acc_sum = 0.0
     try:
@@ -168,6 +172,9 @@ def main():
                     csv.writer(f).writerow([step, f"{loss_avg:.4f}", f"{acc_avg:.4f}", f"{lr:.2e}", *eval_row])
                 loss_sum = acc_sum = 0.0
                 t_log = time.perf_counter()
+            if args.time_limit and time.perf_counter() - t_start > args.time_limit * 3600:
+                print(f"Batas waktu {args.time_limit} jam tercapai, berhenti dengan rapi.", flush=True)
+                break
     except KeyboardInterrupt:
         print("\nTraining dihentikan.")
 
