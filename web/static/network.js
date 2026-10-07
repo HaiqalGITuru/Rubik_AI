@@ -14,12 +14,10 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 function mix(a, b, t) { return a + (b - a) * t; }
 
 export class NetworkView {
-  constructor(canvas, { moves, layerSizes, showNeurons }) {
+  constructor(canvas, config) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.moves = moves;
-    this.layerSizes = layerSizes;           // ukuran asli: [324, 1024, 512, 512, 512, 12]
-    this.showNeurons = showNeurons;         // jumlah neuron yang digambar per lapisan tersembunyi
+    this.configure(config, false);
     this.prev = null;
     this.frame = null;
     this.wave = 1;                          // 0..1, posisi gelombang sinyal kiri -> kanan
@@ -27,6 +25,17 @@ export class NetworkView {
     new ResizeObserver(() => this.resize()).observe(canvas);
     this.resize();
     requestAnimationFrame(t => this.loop(t));
+  }
+
+  // Ganti model yang divisualisasikan (misalnya saat beralih 3x3 <-> 4x4)
+  configure({ moves, layerSizes, showNeurons, size = 3 }, relayout = true) {
+    this.moves = moves;                     // 12 gerakan (3x3) atau 18 gerakan (4x4)
+    this.layerSizes = layerSizes;           // ukuran asli, misal [324, 1024, 512, 512, 512, 12]
+    this.showNeurons = showNeurons;         // jumlah neuron yang digambar per lapisan tersembunyi
+    this.size = size;
+    this.prev = null;
+    this.frame = null;
+    if (relayout) this.layout();
   }
 
   resize() {
@@ -55,7 +64,7 @@ export class NetworkView {
     this.nodeR = Math.max(3, Math.min(7, (this.h - padTop - padBottom) / Math.max(...this.showNeurons) / 2 - 2));
     this.inputBox = { x: 12, w: inputW, top: padTop };
     this.outputBox = { x: this.w - outputW, w: outputW - 8, top: padTop, bottom: this.h - padBottom };
-    const rowH = (this.outputBox.bottom - this.outputBox.top) / 12;
+    const rowH = (this.outputBox.bottom - this.outputBox.top) / this.moves.length;
     this.outputs = this.moves.map((_, i) => ({ x: this.outputBox.x, y: this.outputBox.top + rowH * (i + 0.5), h: rowH }));
   }
 
@@ -96,11 +105,11 @@ export class NetworkView {
     // Judul kolom (ukuran lapisan asli)
     ctx.fillStyle = MUTED;
     ctx.textAlign = 'center';
-    ctx.fillText('54 stiker', this.inputBox.x + this.inputBox.w / 2, 14);
+    ctx.fillText(`${6 * this.size * this.size} stiker`, this.inputBox.x + this.inputBox.w / 2, 14);
     this.cols.forEach((col, c) => {
       ctx.fillText(this.layerSizes[c + 1].toLocaleString('id-ID'), col[0].x, 14);
     });
-    ctx.fillText('12 gerakan', this.outputBox.x + this.outputBox.w / 2, 14);
+    ctx.fillText(`${this.moves.length} gerakan`, this.outputBox.x + this.outputBox.w / 2, 14);
 
     this.drawEdges();
     this.drawInput();
@@ -160,17 +169,18 @@ export class NetworkView {
     const { ctx } = this;
     const state = this.frame ? this.frame.input : null;
     // Jaring kubus mini: U di atas, L F R B di tengah, D di bawah
-    const cell = Math.floor(this.inputBox.w / 12);
-    const netW = cell * 12, netH = cell * 9;
+    const n = this.size, nn = n * n;
+    const cell = Math.max(3, Math.floor(this.inputBox.w / (4 * n)));
+    const netW = cell * 4 * n, netH = cell * 3 * n;
     const x0 = this.inputBox.x + (this.inputBox.w - netW) / 2;
     const y0 = this.h / 2 - netH / 2;
-    const place = { U: [3, 0], L: [0, 3], F: [3, 3], R: [6, 3], B: [9, 3], D: [3, 6] };
+    const place = { U: [1, 0], L: [0, 1], F: [1, 1], R: [2, 1], B: [3, 1], D: [1, 2] };
     'URFDLB'.split('').forEach((f, fi) => {
       const [gx, gy] = place[f];
-      for (let k = 0; k < 9; k++) {
-        const color = state ? COLORS[state[fi * 9 + k]] : '#EEF1F5';
+      for (let k = 0; k < nn; k++) {
+        const color = state ? COLORS[state[fi * nn + k]] : '#EEF1F5';
         ctx.fillStyle = color;
-        const x = x0 + (gx + (k % 3)) * cell, y = y0 + (gy + Math.floor(k / 3)) * cell;
+        const x = x0 + (gx * n + (k % n)) * cell, y = y0 + (gy * n + Math.floor(k / n)) * cell;
         ctx.fillRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
         ctx.strokeStyle = 'rgba(24,32,44,0.22)';
         ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
@@ -183,7 +193,7 @@ export class NetworkView {
     const out = this.frame ? this.frame.output : null;
     const chosen = this.frame && this.frame.chosen !== undefined ? this.frame.chosen : -1;
     const r = this.reached(this.cols.length + 1);
-    const labelW = 30, barX = this.outputBox.x + labelW, barW = this.outputBox.w - labelW - 34;
+    const labelW = 36, barX = this.outputBox.x + labelW, barW = this.outputBox.w - labelW - 34;
     this.outputs.forEach((o, k) => {
       const p = out ? out[k] * r : 0;
       const isChosen = k === chosen && r > 0.6;

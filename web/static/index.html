@@ -16,7 +16,7 @@
   <header class="top">
     <div>
       <h1>Rubik AI</h1>
-      <p class="lede">Jaringan saraf yang belajar sendiri menyelesaikan kubus 3x3, tanpa diajari rumus manusia.</p>
+      <p class="lede">Jaringan saraf yang belajar sendiri menyelesaikan kubus <span id="lede-size">3x3</span>, tanpa diajari rumus manusia.</p>
     </div>
     <dl class="model-info" id="model-info">
       <div><dt>Training</dt><dd id="info-steps">–</dd></div>
@@ -27,6 +27,10 @@
   <main>
     <section class="stage">
       <div class="cube-panel">
+        <div class="size-toggle" role="group" aria-label="Pilih ukuran kubus">
+          <button type="button" data-size="3" aria-pressed="true">3x3</button>
+          <button type="button" data-size="4" aria-pressed="false">4x4</button>
+        </div>
         <div class="cube-view" id="cube-view">
           <p class="status" id="status" role="status">Kubus masih utuh</p>
           <p class="hint">Seret untuk memutar, gulir untuk zoom</p>
@@ -87,7 +91,7 @@
           <button class="btn btn-quiet btn-small" id="btn-copy" disabled>Salin</button>
         </div>
         <div class="formula-row">
-          <h3>Kociemba</h3>
+          <h3 id="compare-label">Kociemba</h3>
           <div class="moves moves-plain" id="kociemba-moves"><span class="empty">Pembanding muncul setelah AI selesai</span></div>
         </div>
       </div>
@@ -116,8 +120,8 @@
       <h2>Riwayat sesi ini</h2>
       <div class="table-wrap">
         <table class="history">
-          <thead><tr><th>#</th><th>Scramble</th><th>AI</th><th>Waktu AI</th><th>Kociemba</th><th>Pencarian</th></tr></thead>
-          <tbody id="history-body"><tr class="empty-row"><td colspan="6">Belum ada solusi di sesi ini.</td></tr></tbody>
+          <thead><tr><th>#</th><th>Kubus</th><th>Scramble</th><th>AI</th><th>Waktu AI</th><th>Kociemba</th><th>Pencarian</th></tr></thead>
+          <tbody id="history-body"><tr class="empty-row"><td colspan="7">Belum ada solusi di sesi ini.</td></tr></tbody>
         </table>
       </div>
     </section>

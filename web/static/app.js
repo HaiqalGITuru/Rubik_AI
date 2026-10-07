@@ -16,7 +16,8 @@ view.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-camera.position.set(6.4, 5.4, 8.2); // putih di atas, hijau di depan, merah di kanan
+const CAMERA_BASE = new THREE.Vector3(6.4, 5.4, 8.2); // putih di atas, hijau di depan, merah di kanan
+camera.position.copy(CAMERA_BASE);
 scene.add(new THREE.HemisphereLight('#ffffff', '#b8c0cc', 2.2));
 const sun = new THREE.DirectionalLight('#ffffff', 1.6);
 sun.position.set(4, 8, 6);
@@ -52,6 +53,8 @@ renderer.setAnimationLoop(now => {
 // State aplikasi
 // ------------------------------------------------------------------ //
 let network = null;
+let size = 3;              // ukuran kubus yang sedang aktif
+let infoAll = {};          // info model per ukuran dari server
 let applied = [];          // semua gerakan sejak kubus selesai (dikirim ke server)
 let busy = false;
 let history = [];
@@ -61,6 +64,7 @@ const solveMs = () => 480 / speed();
 const scrambleMs = () => 150 / speed();
 
 async function api(path, body) {
+  if (body) body = { size, ...body };
   const res = await fetch(path, {
     method: body ? 'POST' : 'GET',
     headers: { 'Content-Type': 'application/json' },
@@ -80,6 +84,9 @@ function setBusy(b) {
   busy = b;
   for (const id of ['btn-scramble', 'btn-solve', 'btn-reset', 'beam']) $(id).disabled = b;
   $('scramble-form').querySelector('button').disabled = b;
+  document.querySelectorAll('.size-toggle button').forEach(btn => {
+    btn.disabled = b || !infoAll[btn.dataset.size];
+  });
 }
 
 function renderMoves(el, moves, emptyText) {
@@ -101,7 +108,9 @@ function renderMoves(el, moves, emptyText) {
 }
 
 async function analyzeCurrent() {
-  const { frame } = await api('/api/analyze', { moves: applied });
+  const { frame, state } = await api('/api/analyze', { moves: applied });
+  // 4x4: server menormalkan orientasi (sudut DBL terkunci), samakan tampilan 3D
+  if (size !== 3) cube.setState(state);
   network.show(frame, 600);
 }
 
@@ -110,7 +119,7 @@ async function analyzeCurrent() {
 // ------------------------------------------------------------------ //
 async function runScramble(moves) {
   setBusy(true);
-  cube.reset();
+  cube.reset(size);
   applied = [];
   clearSolution();
   renderMoves($('scramble-moves'), moves, 'Belum diacak');
@@ -127,7 +136,7 @@ async function runScramble(moves) {
 
 $('btn-scramble').addEventListener('click', async () => {
   try {
-    const { moves } = await api('/api/scramble', { length: 20 });
+    const { moves } = await api('/api/scramble', {});
     await runScramble(moves);
   } catch (e) { showError(e); }
 });
@@ -144,7 +153,7 @@ $('scramble-form').addEventListener('submit', async ev => {
 });
 
 $('btn-reset').addEventListener('click', async () => {
-  cube.reset();
+  cube.reset(size);
   applied = [];
   clearSolution();
   renderMoves($('scramble-moves'), [], 'Belum diacak');
@@ -157,7 +166,8 @@ $('btn-reset').addEventListener('click', async () => {
 // ------------------------------------------------------------------ //
 function clearSolution() {
   renderMoves($('solution-moves'), [], 'Acak kubus, lalu tekan Selesaikan dengan AI');
-  renderMoves($('kociemba-moves'), [], 'Pembanding muncul setelah AI selesai');
+  renderMoves($('kociemba-moves'), [], size === 3 ? 'Pembanding muncul setelah AI selesai'
+    : 'Solusi dalam notasi WCA (Uw, Rw, ...) muncul setelah AI selesai');
   $('btn-copy').disabled = true;
 }
 
@@ -186,6 +196,7 @@ $('btn-solve').addEventListener('click', async () => {
   const chips = renderMoves($('solution-moves'), res.moves, '');
   $('btn-copy').disabled = false;
   if (res.kociemba) renderMoves($('kociemba-moves'), res.kociemba.moves, '');
+  if (res.wca) renderMoves($('kociemba-moves'), res.wca, '');
   renderStats(res);
   const bars = renderConfidence(res.steps);
   const scrambleText = applied.join(' ');
@@ -280,11 +291,12 @@ function renderConfidence(steps) {
 }
 
 function addHistory(scramble, res) {
-  history.unshift({ scramble, res });
+  history.unshift({ scramble, res, size });
   $('history-body').replaceChildren(...history.map((h, i) => {
     const tr = document.createElement('tr');
     const s = h.res.stats;
     tr.innerHTML = `<td>${history.length - i}</td>
+      <td>${h.size}x${h.size}</td>
       <td class="mono" title="${h.scramble}">${h.scramble}</td>
       <td>${s.length} langkah</td>
       <td>${s.time_ms >= 1000 ? `${fmt(s.time_ms / 1000, 2)} dtk` : `${fmt(s.time_ms)} ms`}</td>
@@ -295,19 +307,52 @@ function addHistory(scramble, res) {
 }
 
 // ------------------------------------------------------------------ //
+// Beralih 3x3 <-> 4x4
+// ------------------------------------------------------------------ //
+async function switchSize(n, first = false) {
+  if (busy || (!first && n === size) || !infoAll[n]) return;
+  size = n;
+  const info = infoAll[n];
+  document.querySelectorAll('.size-toggle button').forEach(b =>
+    b.setAttribute('aria-pressed', String(Number(b.dataset.size) === n)));
+
+  cube.reset(n);
+  camera.position.copy(CAMERA_BASE).multiplyScalar(n / 3);
+  controls.minDistance = 6 * n / 3;
+  controls.maxDistance = 16 * n / 3;
+  controls.update();
+  applied = [];
+
+  $('lede-size').textContent = `${n}x${n}`;
+  $('info-steps').textContent = `${fmt(info.train_steps)} langkah`;
+  $('info-params').textContent = `${fmt(info.parameters / 1e6, 2)} juta`;
+  $('compare-label').textContent = n === 3 ? 'Kociemba' : 'Notasi WCA';
+  $('scramble-text').value = '';
+  $('scramble-text').placeholder = n === 3 ? "Contoh: R U R' U' F2 D" : "Contoh: Rw U2 Fw' 2R U (Uw, Rw, 2U, 3R, x/y/z juga bisa)";
+  $('scramble-error').textContent = '';
+  renderMoves($('scramble-moves'), [], 'Belum diacak');
+  clearSolution();
+
+  const cfg = { moves: info.moves, layerSizes: info.layers, showNeurons: info.show_neurons, size: n };
+  if (network) network.configure(cfg);
+  else network = new NetworkView($('network'), cfg);
+  setStatus(n === 3 ? 'Kubus masih utuh' : 'Kubus 4x4 masih utuh (AI andal sampai scramble ±15 gerakan)');
+  await analyzeCurrent();
+}
+
+// ------------------------------------------------------------------ //
 // Mulai
 // ------------------------------------------------------------------ //
 (async () => {
   try {
-    const info = await api('/api/info');
-    $('info-steps').textContent = `${fmt(info.train_steps)} langkah`;
-    $('info-params').textContent = `${fmt(info.parameters / 1e6, 2)} juta`;
-    network = new NetworkView($('network'), {
-      moves: info.moves,
-      layerSizes: info.layers,
-      showNeurons: info.show_neurons,
+    infoAll = (await api('/api/info')).sizes;
+    document.querySelectorAll('.size-toggle button').forEach(b => {
+      const ok = Boolean(infoAll[b.dataset.size]);
+      b.disabled = !ok;
+      if (!ok) b.title = `Model ${b.dataset.size}x${b.dataset.size} belum ada. Latih dulu: python -m scripts.train --puzzle ${b.dataset.size}`;
+      b.addEventListener('click', () => switchSize(Number(b.dataset.size)));
     });
-    await analyzeCurrent();
+    await switchSize(infoAll['3'] ? 3 : 4, true);
   } catch (e) {
     showError(e);
   }
