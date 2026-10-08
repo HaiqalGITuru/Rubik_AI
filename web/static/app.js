@@ -108,10 +108,21 @@ function renderMoves(el, moves, emptyText) {
 }
 
 async function analyzeCurrent() {
-  const { frame, state } = await api('/api/analyze', { moves: applied });
+  const data = await api('/api/analyze', { moves: applied });
   // 4x4: server menormalkan orientasi (sudut DBL terkunci), samakan tampilan 3D
-  if (size !== 3) cube.setState(state);
-  network.show(frame, 600);
+  if (size !== 3) cube.setState(data.state);
+  network.show(data.frame, 600);
+  return data;
+}
+
+// Teks tingkat kesulitan scramble 4x4 dibanding batas andal model yang dimuat
+function difficultyText(d) {
+  const limit = infoAll[size]?.reliable_depth;
+  if (d == null || !limit) return '';
+  const note = d <= limit ? 'masih dalam jangkauan AI'
+    : d <= limit + 10 ? `di atas batas andal ±${limit}, coba lebar pencarian besar`
+    : `jauh di atas batas andal ±${limit}, kemungkinan besar gagal`;
+  return ` · tingkat kesulitan: sekitar ${d} gerakan AI (${note})`;
 }
 
 // ------------------------------------------------------------------ //
@@ -130,7 +141,8 @@ async function runScramble(moves) {
     applied.push(m);
   }
   setStatus(`Teracak ${moves.length} langkah`);
-  await analyzeCurrent();
+  const { difficulty } = await analyzeCurrent();
+  setStatus(`Teracak ${moves.length} langkah${difficultyText(difficulty)}`);
   setBusy(false);
 }
 
@@ -336,7 +348,8 @@ async function switchSize(n, first = false) {
   const cfg = { moves: info.moves, layerSizes: info.layers, showNeurons: info.show_neurons, size: n };
   if (network) network.configure(cfg);
   else network = new NetworkView($('network'), cfg);
-  setStatus(n === 3 ? 'Kubus masih utuh' : 'Kubus 4x4 masih utuh (AI andal sampai scramble ±15 gerakan)');
+  setStatus(n === 3 ? 'Kubus masih utuh'
+    : `Kubus ${n}x${n} masih utuh (AI andal sampai scramble ±${info.reliable_depth ?? 15} gerakan AI)`);
   await analyzeCurrent();
 }
 

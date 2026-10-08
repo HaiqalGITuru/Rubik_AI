@@ -13,6 +13,7 @@ Server hanya mendengarkan di 127.0.0.1, jadi hanya bisa diakses dari laptop Anda
 from __future__ import annotations
 
 import argparse
+import itertools
 import threading
 import time
 import webbrowser
@@ -88,8 +89,14 @@ class Bundle:
             "moves": self.moves,
             "show_neurons": SHOW_NEURONS,
             "kociemba": size == 3 and kociemba is not None,
+            # Batas scramble (dalam gerakan AI) yang masih andal diselesaikan.
+            # Hasil evaluasi: model 4x4 laptop (~3 juta parameter) ±15, model besar Kaggle (~16 juta) ±25.
+            "reliable_depth": None if size == 3 else (RELIABLE4 or (25 if self._num_params() > 10e6 else 15)),
         }
         self._pick_neurons()
+
+    def _num_params(self) -> int:
+        return sum(t.numel() for t in self.model.parameters())
 
     def new_cube(self, moves=()):
         cube = Cube() if self.size == 3 else CubeN(self.size)
@@ -121,6 +128,7 @@ class Bundle:
 
 
 BUNDLES: dict[int, Bundle] = {}
+RELIABLE4: int | None = None  # diisi dari --reliable4 (kosong = otomatis dari ukuran model)
 
 
 def get_bundle(size: int) -> Bundle:
@@ -148,6 +156,58 @@ def group_moves(raw: list[str]):
     return [(b + {1: "", 2: "2", 3: "'"}[a], start) for b, a, start in groups]
 
 
+HALF_COST = {0: 0, 1: 1, 2: 2, 3: 1}  # putaran 0/90/180/270 derajat dalam gerakan AI
+
+
+def ai_difficulty(b: Bundle, tokens: list[str]) -> int | None:
+    """Tingkat kesulitan scramble NxN = banyaknya gerakan seperempat AI yang setara.
+
+    Setiap token (Rw, D, 2U, x, ...) diubah menjadi putaran lapisan-lapisan AI pada
+    satu sumbu (U/R/F, sudut DBL terkunci) dengan mencocokkan state kubus. Token
+    berurutan pada sumbu yang sama digabung, jadi "Fw' F" dihitung 1 (= 2F'),
+    D dihitung 3, Rw dihitung 2, rotasi x/y/z dihitung 0.
+    """
+    if b.size == 3:
+        return None
+    if not hasattr(b, "_combos"):
+        # Semua kombinasi putaran lapisan per sumbu, urut dari yang termurah
+        combos = []
+        for ai, f in enumerate("URF"):
+            names = [f] + [f"{k}{f}" for k in range(2, b.size)]
+            layer_perms = [b.perms[b.moves.index(nm)] for nm in names]
+            for amounts in itertools.product(range(4), repeat=len(layer_perms)):
+                comp = np.arange(len(layer_perms[0]))
+                for p, a in zip(layer_perms, amounts):
+                    for _ in range(a):
+                        comp = comp[p]
+                combos.append((sum(HALF_COST[a] for a in amounts), ai, amounts, comp))
+        combos.sort(key=lambda c: c[0])
+        b._combos = combos
+
+    total, run_axis, run = 0, None, None
+    cube = b.new_cube()
+    prev = cube.state.copy()
+    for t in tokens:
+        cube = cube.apply_sequence([t])
+        nxt = cube.state.copy()
+        best = next((c for c in b._combos if np.array_equal(prev[c[3]], nxt)), None)
+        prev = nxt
+        if best is None:
+            return None
+        c, ai, amounts, _ = best
+        if c == 0:
+            continue
+        if ai == run_axis:
+            run = [(x + y) % 4 for x, y in zip(run, amounts)]
+        else:
+            if run is not None:
+                total += sum(HALF_COST[a] for a in run)
+            run_axis, run = ai, list(amounts)
+    if run is not None:
+        total += sum(HALF_COST[a] for a in run)
+    return total
+
+
 def normalize_tokens(text: str, size: int) -> list[str]:
     text = text.replace("’", "'").replace("`", "'").replace("′", "'").replace(",", " ")
     tokens = text.split()
@@ -164,6 +224,14 @@ def normalize_tokens(text: str, size: int) -> list[str]:
 # API
 # ---------------------------------------------------------------------- #
 app = FastAPI(title="Rubik AI")
+
+
+@app.middleware("http")
+async def no_cache(request, call_next):
+    """Supaya browser selalu memuat app.js/style.css terbaru (tidak perlu Ctrl+Shift+R)."""
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 class ScrambleRequest(BaseModel):
@@ -197,8 +265,18 @@ def scramble(req: ScrambleRequest):
     b = get_bundle(req.size)
     if req.size == 3:
         return {"moves": Cube().scramble(req.length or 20)}
-    # 4x4: AI andal sampai sekitar 15 gerakan seperempat (lihat eksperimen 4)
-    return {"moves": compress_moves(CubeN(req.size).scramble(req.length or 15))}
+    # 4x4: panjang default = batas andal model yang dimuat. Gerakan acak bisa saling
+    # menghapus (2U 3U 2U' ...), jadi ulangi sampai tingkat kesulitannya pas.
+    target = req.length or b.info["reliable_depth"]
+    best = None
+    for attempt in range(24):
+        moves = compress_moves(CubeN(req.size).scramble(target + attempt // 4))
+        d = ai_difficulty(b, moves)
+        if d is not None and (best is None or abs(d - target) < abs(best[1] - target)):
+            best = (moves, d)
+        if d == target:
+            break
+    return {"moves": best[0], "difficulty": best[1]}
 
 
 @app.post("/api/parse")
@@ -226,7 +304,8 @@ def analyze(req: SolveRequest):
     frame = b.frames(cube.state[None])[0]
     if not cube.is_solved():
         frame["chosen"] = int(np.argmax(frame["output"]))
-    return {"frame": frame, "solved": cube.is_solved(), "state": cube.state.tolist()}
+    return {"frame": frame, "solved": cube.is_solved(), "state": cube.state.tolist(),
+            "difficulty": ai_difficulty(b, req.moves)}
 
 
 @app.post("/api/solve")
@@ -244,7 +323,9 @@ def solve(req: SolveRequest):
 
     res = beam_search(b.model, cube, beam_width=req.beam, max_depth=40 if req.size == 3 else 60)
     if not res.solved:
-        tip = "" if req.size == 3 else " Untuk 4x4, AI andal sampai scramble sekitar 15 gerakan."
+        tip = "" if req.size == 3 else (
+            f" Model 4x4 ini andal sampai scramble sekitar {b.info['reliable_depth']} gerakan AI; "
+            f"scramble ini sekitar {ai_difficulty(b, req.moves)} gerakan AI.")
         return {"solved": False, "message": (
             f"AI belum menemukan solusi dengan lebar pencarian {req.beam} ({res.time_sec:.1f} dtk). "
             f"Coba pilih yang lebih lebar.{tip}")}
@@ -301,9 +382,14 @@ def main():
     p.add_argument("--model4", default="models/cubenet_4x4.pt", help="model kubus 4x4 (opsional)")
     p.add_argument("--port", type=int, default=8000)
     p.add_argument("--no-browser", action="store_true")
+    p.add_argument("--reliable4", type=int, default=None,
+                   help="batas andal model 4x4 dalam gerakan AI (default: otomatis, 15 atau 25)")
     args = p.parse_args()
 
     import uvicorn
+
+    global RELIABLE4
+    RELIABLE4 = args.reliable4
 
     for size, path in ((3, args.model), (4, args.model4)):
         path = Path(path) if Path(path).is_absolute() else ROOT / path
