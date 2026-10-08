@@ -714,6 +714,108 @@
     "scramble": "U 3F' 3U 3R 2R 3F' U F' R' 2R 3F 2R 3R 3U' 2R F' 2R F 3U' 2F' 2U' U 2R' R 2U' 2F R R 3F' R' 2R 3U 3R 2R' F' 2R' U' R' 2R 3R",
     "scramble_htm": 39
    }
+  ],
+  "50": [
+   {
+    "id": 0,
+    "scramble": "2R R F' 2U' F 2U F' 2R 2F 2U 3R F 2F 2F 3U 2U 2F 2F R U F 3F' F' 3R' F' 2F' 3R' 3F 2U U 3U' 2U' 2R' F 2F R 2F 3U U' 3F F 2U 2F U 2U' F 2R' 2F R 3R",
+    "scramble_htm": 48
+   },
+   {
+    "id": 1,
+    "scramble": "3F 3R F R 3F' U' F' 3F U F' U 2R' 2R' F' 3F 3F R' 3R U F' 3U' 2R 2F 3U 3R 2U 2R R 2U U' 2U' F' 3F' 2U 2U U R' 3F' U 3F 3U U 2R' 2U 2F' 3R 3R F U U",
+    "scramble_htm": 45
+   },
+   {
+    "id": 2,
+    "scramble": "U F' 3F' 2R U' R' 3R F 3U' 3U' 2U' 3U' F 3U 2R 3U 3R' 3U' U 2F' 2U' 2R 2F U' 3F 2U' R 3R 2F 3U' 3U' 2R' 3R' 2U' 3R 3F' U' 3R 2F' 2R' R 2U' F 3R' 2F' 3F 3U' U' 3F 2R",
+    "scramble_htm": 48
+   },
+   {
+    "id": 3,
+    "scramble": "3U' 2U 3U' 2F' 3R' 2U F F 2R' U' R U' 2F U' R' 2R' 3U 3R 2R' F U R F' 3F' 2U' 3F' 3R' 2R' 2U 2F R' 3R' 3U U' F R 2U' 2R' 3U 2U U 2R' U 3R 3F 3R' 2U' 3U' R' R'",
+    "scramble_htm": 48
+   },
+   {
+    "id": 4,
+    "scramble": "F' 3U' 2F' 2U' U 2R 3U' 3F' R 2R R' 3R 3F F 2R 2F 2R' R R U' 2U 3U' R' U U 3F 2U F' 3U' 3F' U' 3U' 3F 3F F R 3U 2R 2F' R F' 2U' 3F' 2F' 2R' 3U' 2F F' F' 3U'",
+    "scramble_htm": 46
+   },
+   {
+    "id": 5,
+    "scramble": "U 2U' 2F 2U 3F' 2U' U' 2R 3F F 2R U' 3R 2U' 2F 3U 3R F' U' U' 3F U 2U' 2R' U' 3R F' R' U' 2U 2R 2U' R' 2F F' 2U F' 3R 3F' 3F' 3U' 2F' 2U 3U' 2R' F R F U' 2U",
+    "scramble_htm": 48
+   },
+   {
+    "id": 6,
+    "scramble": "3R 2U 3U F' R 3U 2U F' U' 2R 2U F 2U R 2F 3R' 3F' U 2U 2U R 2F' F R U' F R 3R' U 3U' 2R' U 2R' 2U' 3U R' U 2U 3U 3R' R' 2F 2R U 3F' 3R' R' 2U' F 3F'",
+    "scramble_htm": 49
+   },
+   {
+    "id": 7,
+    "scramble": "R 3R' U' 2U 2U U 3F' 2U' 3U' R' 2U R' 2U' R 2U' R 2F U R 2R' R' 3F F' 3F' U 2R' R' 2R 2F' F' 3U' F 3U' 3F 2F' U 2F F' 3R 2U' R 3F' R 2R 3U R F' 3U' U 2F'",
+    "scramble_htm": 49
+   },
+   {
+    "id": 8,
+    "scramble": "F' 2R 2U 3R U 3F' 2F R' 3U' F U' 3U 2U 3F 2R' 3F 2F' 3F 3F F' U' F 2R' R F R 3F' R' 3R' F 2F F R' 2U' F 3R F 3F 3U' R R 2F' 3F 3U 2U' 2F' 3F' 3U' R 3U'",
+    "scramble_htm": 48
+   },
+   {
+    "id": 9,
+    "scramble": "U 2F' 2U U F' 3U 2F 2R' 2U' 3F' 2U' F' 2R 2U' 2U' 3R' 3U 3R' 3F 2F 3F' 3U' U 3U' 2R' U F' 2U U U 2R' F' 2F 2U F 3F' R' R' 2F R F' 2R 2F 2R 2F 3R' 3R' 2R' 3R F",
+    "scramble_htm": 46
+   },
+   {
+    "id": 10,
+    "scramble": "2U F 2R' F 2U 2F 3U F 3R' R 2F F' 3F 2R 2U' 2F' 2R' 2F 2R 3U U 3U' F 2U F' 3R 2F' U' U' R 3F 3R' 3R' R 2F 2R 3R' 3F U F' 2F 2U' U 2F' U' 2R' 3F R' 3F 3F",
+    "scramble_htm": 47
+   },
+   {
+    "id": 11,
+    "scramble": "3F 3U R U' 2U' 2F' 3U' 2U' 3U' 2F 3R F 3U 2F 3U' R' 2U U 2F' U 2U 3F U F' 3R 2R' F 2U' 3R 2R' 2F 3F' F 2F' R' U F U' R' 3F' F' 2R 2F' R F 2U' 3F R U' F'",
+    "scramble_htm": 50
+   },
+   {
+    "id": 12,
+    "scramble": "U' 3F' U' 3U' 3U' 2F 2F 2U' 2R 3R' U' 3R R 2R' 3F' 3U' 3F' 2R 2F R 2F F' U' 2F 3F' 3R' U 2U F 2R 3R 3U' R 2F 3R 3R R U F 2R 3F' 2U 3F U' 2R' U 2F' 3U' R 2U",
+    "scramble_htm": 47
+   },
+   {
+    "id": 13,
+    "scramble": "3R' 3U 2U 2R' 3U' 3R' 2R' U R 2U R' 3R' 3F' 2F' 3F 2F 2R' 3R U U F' R 2U U' 3U' R' 3F' 2F' 2R' 2F F F U 3U F 3U' 3F' 2R' 3F R' U 2R' R 2U 3F' 2U F 3F' 2F 2U",
+    "scramble_htm": 48
+   },
+   {
+    "id": 14,
+    "scramble": "F' 3F 2F U 2R 3R' 3U' 2F 3R' F' R' 3R R' R' 2U' 2F' 3U' 3R' 3F 3F 2U 3U' U' 2U' U' 2U' 3R 2R 3F U' 2U' 3R' 2R 2F U' 3R 3R F U U 3U' 2F' 3U' R' 3F 3R' R' F 3R F'",
+    "scramble_htm": 46
+   },
+   {
+    "id": 15,
+    "scramble": "2R 2F' 2U 2F' 3R' 3U 3U 3F U R 3R 2F' R 3U' U' 3F' 2R' U' 2U' 2R' 3R' 2U 2F' 3F' 2U 2F' R 2F 2F 2U 3F' U' 2F 3R 3R F 2R' R' U' U' 2U' 3R 2F U 3F 2U 3U' 2U' 2F 3F'",
+    "scramble_htm": 46
+   },
+   {
+    "id": 16,
+    "scramble": "R F 3U' R 3U' 3F R' 2U 3R' U 2R' 2F' 2U' R 2R R 2U' 2U' U' R' 2U' 3F' 2U' 3R R' U 2R 2U 3R' 3F 2R' 2R' 3U 2F 3F 3R 3U 2U' 2U' 2R 3U 2R 2U 2F' 3F 2R 3R 2U 2F 2U",
+    "scramble_htm": 47
+   },
+   {
+    "id": 17,
+    "scramble": "2U 3R 2R' 2R' R' 2F' 2U' 2F R' F U' F 3U R 2R 3F F 3U' 2F' F' F' R R U 3R U' F R 2U' U 2R 3F' U' 3R R' 2U' 3F U 3F' R' U' R' 3R 2F' 2U 3R 3R 2R 3U' 3F'",
+    "scramble_htm": 46
+   },
+   {
+    "id": 18,
+    "scramble": "2R 2R 2U 3R U' U' 2F' 3R' F' 3F' 2F 3U' 2F R 3U F' 2R R 2R' R 3F' F U 2U 3U 3R' F 3R' 3F U' U' R 3F' 2U 3F' 2R' F 3R' 3U' 3F' 2F' 3R' 3F' 3U 3R 2R 2F' F R' U'",
+    "scramble_htm": 47
+   },
+   {
+    "id": 19,
+    "scramble": "2U 3F 2F' R' U 3R 2U 2R' 3U' 2R R 2R 3U' 2R' U U 3F 2U 2R' 2U' 2R 3F' 2U' 3R' 2R 2F F' 2U' 2U' 3F 3U' 3R U 3U' 3R 3U' U' 3F' U' F 3R 3F F' 3R 3F' 3F' F U' 2F 2R",
+    "scramble_htm": 47
+   }
   ]
  }
 }
