@@ -170,12 +170,19 @@ class CubeN:
         self.puzzle = get_puzzle(n)
         self.n = n
         self.state = self.puzzle.solved.copy() if state is None else np.asarray(state, dtype=np.uint8).copy()
+        # Kubus "fisik" dengan arah pegangan tetap. Token selalu diterapkan pada kubus fisik
+        # (seperti orang mengikuti scramble WCA tanpa memutar pegangan), lalu `state` adalah
+        # versi bakunya (sudut DBL dikunci) yang dilihat AI.
+        self._phys = self.state.copy()
 
     def copy(self) -> "CubeN":
+        """Salinan yang sudah 'dipegang ulang' (sudut DBL di bawah-belakang-kiri),
+        yaitu titik awal untuk menjalankan solusi AI."""
         return CubeN(self.n, self.state)
 
     def apply(self, token: str) -> "CubeN":
-        self.state = self.puzzle.normalize(self.state[self.puzzle.token_perm(token)])
+        self._phys = self._phys[self.puzzle.token_perm(token)]
+        self.state = self.puzzle.normalize(self._phys)
         return self
 
     def apply_sequence(self, seq) -> "CubeN":

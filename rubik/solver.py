@@ -45,10 +45,14 @@ def _dedupe(states: np.ndarray) -> np.ndarray:
 
 
 @torch.no_grad()
-def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_depth: int = 40) -> SolveResult:
+def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_depth: int = 40,
+                goal_fn=None) -> SolveResult:
+    """goal_fn: fungsi (states (B, S)) -> array bool. Default: kubus selesai.
+    Metode reduksi 4x4 memakai tujuan lain: pusat & tepi tersusun."""
     model.eval()
     t0 = time.perf_counter()
-    if cube.is_solved():
+    goal_fn = goal_fn or _is_solved_batch
+    if goal_fn(cube.state[None])[0]:
         return SolveResult(True, [], 0.0, 0)
 
     puzzle = getattr(cube, "puzzle", None)  # CubeN (4x4) membawa spesifikasinya sendiri
@@ -83,7 +87,7 @@ def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_d
         new_paths = np.concatenate([paths[parent], move[:, None]], axis=1)
         new_scores = flat[top]
 
-        solved = _is_solved_batch(new_states)
+        solved = goal_fn(new_states)
         if solved.any():
             best = np.flatnonzero(solved)[0]
             moves = [names[i] for i in new_paths[best]]

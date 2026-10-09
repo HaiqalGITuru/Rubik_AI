@@ -75,10 +75,17 @@ def generate_batch(
         perms, inv, solved = QUARTER_PERMS, INVERSE_IDX, SOLVED_STATE
     else:               # misalnya NxNPuzzle untuk 4x4
         perms, inv, solved = puzzle.quarter_perms, puzzle.inverse_idx, puzzle.solved
-    S = len(solved)
+    return generate_batch_from(np.tile(solved, (num_scrambles, 1)), max_depth, rng, perms, inv)
+
+
+def generate_batch_from(start_states: np.ndarray, max_depth: int, rng: np.random.Generator,
+                        perms: np.ndarray = QUARTER_PERMS, inv: np.ndarray = INVERSE_IDX):
+    """Sama seperti generate_batch, tetapi titik awal tiap scramble boleh berbeda
+    (dipakai metode reduksi: titik awal = kubus 4x4 tereduksi acak)."""
+    num_scrambles, S = start_states.shape
     moves = _random_moves(num_scrambles, max_depth, rng, len(perms), inv)
 
-    states = np.tile(solved, (num_scrambles, 1))
+    states = start_states
     X = np.empty((max_depth, num_scrambles, S), dtype=np.uint8)
     y = np.empty((max_depth, num_scrambles), dtype=np.int64)
     for t in range(max_depth):

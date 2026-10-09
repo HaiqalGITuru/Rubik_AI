@@ -31,10 +31,19 @@ class ResidualBlock(nn.Module):
 
 class CubeNet(nn.Module):
     def __init__(self, hidden1: int = 1024, hidden2: int = 512, num_blocks: int = 4, num_moves: int = 12,
-                 num_stickers: int = 54):
+                 num_stickers: int = 54, input_idx: list[int] | None = None):
+        """input_idx: kalau diisi, jaringan hanya melihat stiker-stiker ini
+        (AI reduksi 4x4 hanya melihat stiker pusat & tepi, sudut diabaikan)."""
         super().__init__()
         self.config = dict(hidden1=hidden1, hidden2=hidden2, num_blocks=num_blocks, num_moves=num_moves,
                            num_stickers=num_stickers)
+        if input_idx is not None:
+            input_idx = [int(i) for i in input_idx]
+            self.config["input_idx"] = input_idx
+            num_stickers = len(input_idx)
+            self.register_buffer("input_idx", torch.tensor(input_idx, dtype=torch.long), persistent=False)
+        else:
+            self.input_idx = None
         self.input = nn.Sequential(
             nn.Linear(num_stickers * 6, hidden1), nn.BatchNorm1d(hidden1), nn.ReLU(),
             nn.Linear(hidden1, hidden2), nn.BatchNorm1d(hidden2), nn.ReLU(),
@@ -44,6 +53,8 @@ class CubeNet(nn.Module):
 
     def forward(self, states: torch.Tensor) -> torch.Tensor:
         """states: LongTensor (B, stiker) berisi warna 0..5 -> logits (B, jumlah gerakan)"""
+        if self.input_idx is not None:
+            states = states[:, self.input_idx]
         x = F.one_hot(states.long(), num_classes=6).float().flatten(1)
         x = self.input(x)
         x = self.blocks(x)
