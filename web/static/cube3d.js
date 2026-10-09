@@ -1,4 +1,4 @@
-// Kubus rubik 3D N x N (Three.js) untuk 3x3 dan 4x4.
+// Kubus rubik 3D (Three.js).
 // Konvensi sama dengan simulator Python: x -> kanan (R), y -> atas (U), z -> depan (F).
 // Gerakan searah jarum jam (dilihat dari wajahnya) = rotasi -90 derajat terhadap normal wajah.
 
@@ -14,7 +14,7 @@ const NORMALS = {
 const TOKEN = /^(\d*)([URFDLBurfdlbxyz])(w?)(['2]?)$/;
 
 // Indeks stiker dari posisi kubus kecil (koordinat digandakan) + arah hadap,
-// sama persis dengan rubik/moves.py (3x3) dan rubik/nxn.py (N x N).
+// sama persis dengan rubik/moves.py.
 export function stickerIndex(n, [x, y, z], [nx, ny, nz]) {
   const m = n - 1;
   let face, row, col;
@@ -42,7 +42,7 @@ function roundedSquare(size, radius) {
 }
 
 const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-const snapHalf = v => Math.round(v * 2) / 2;  // posisi 4x4 berada di kelipatan 0,5
+const snapHalf = v => Math.round(v * 2) / 2;  // bulatkan posisi ke kelipatan 0,5
 
 export class RubikCube extends THREE.Group {
   constructor(n = 3) {
@@ -56,7 +56,7 @@ export class RubikCube extends THREE.Group {
     this.reset(n);
   }
 
-  // Bangun ulang kubus dalam keadaan selesai. n = 3 atau 4.
+  // Bangun ulang kubus dalam keadaan selesai.
   reset(n = this.n) {
     this.n = n;
     this.queue.forEach(job => job.resolve());
@@ -180,7 +180,7 @@ export class RubikCube extends THREE.Group {
     return state;
   }
 
-  // Warnai ulang semua stiker sesuai state dari server (dipakai untuk 4x4 setelah normalisasi orientasi)
+  // Warnai ulang semua stiker sesuai state dari server
   setState(state) {
     for (const { mesh, cubie } of this.stickers) {
       const color = state[this._index(mesh, cubie)];

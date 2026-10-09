@@ -27,9 +27,9 @@ export class NetworkView {
     requestAnimationFrame(t => this.loop(t));
   }
 
-  // Ganti model yang divisualisasikan (misalnya saat beralih 3x3 <-> 4x4)
+  // Atur model yang divisualisasikan
   configure({ moves, layerSizes, showNeurons, size = 3 }, relayout = true) {
-    this.moves = moves;                     // 12 gerakan (3x3) atau 18 gerakan (4x4)
+    this.moves = moves;                     // 12 gerakan
     this.layerSizes = layerSizes;           // ukuran asli, misal [324, 1024, 512, 512, 512, 12]
     this.showNeurons = showNeurons;         // jumlah neuron yang digambar per lapisan tersembunyi
     this.size = size;

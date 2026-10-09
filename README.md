@@ -120,30 +120,8 @@ python -m scripts.compare_results beam_experiment_large:"EfficientCube besar" de
 
 Training model besar: `notebooks/train_deepcubea_colab.ipynb` di Google Colab.
 
-## Kubus 4x4 (eksplorasi)
+## Catatan: eksperimen 4x4 (ditutup)
 
-`rubik/nxn.py` berisi simulator kubus N x N generik (terverifikasi identik dengan simulator 3x3).
-Pada 4x4 tidak ada pusat yang tetap, jadi **sudut kuning-biru-oranye dikunci di bawah-belakang-kiri**
-dan AI memakai 18 gerakan lapisan dari sisi U, R, F (notasi SiGN: U, 2U, 3U, R, 2R, ...).
-
-```bash
-python -m scripts.train --puzzle 4 --max-depth 30 --save models/cubenet_4x4.pt   # training
-python -m scripts.eval_4x4 --model models/cubenet_4x4.pt --beams 256 1024        # evaluasi per tingkat kesulitan
-python -m scripts.solve_ai_4x4 --depth 15                                         # coba dengan kubus fisik
-```
-## Kubus 4x4: metode reduksi (3 tahap)
-
-AI 4x4 satu tahap andal sampai scramble sekitar 25 gerakan. Untuk scramble kompetisi penuh,
-`rubik/reduction.py` memecah masalah seperti cara manusia:
-
-1. **AI reduksi**: pusat tiap sisi sewarna + semua pasangan tepi menyatu. Jaringan khusus yang
-   hanya melihat 72 stiker pusat & tepi, dilatih dari kubus *tereduksi* acak (`--goal reduce`).
-2. **Paritas** (rumus tetap): OLL parity `2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2`,
-   PLL parity `2R2 U2 2R2 Uw2 2R2 2U2`.
-3. **AI 3x3**: kubus dipetakan ke 3x3 virtual dan diselesaikan model 3x3 yang sudah ada.
-
-```bash
-python -m scripts.train --puzzle 4 --goal reduce --max-depth 40 --save models/reduksi_4x4.pt
-python -m scripts.solve_4x4_reduksi                       # scramble WCA 40 gerakan
-python -m scripts.eval_reduksi --reduce-model models/reduksi_4x4.pt
-```
+Proyek ini sempat diperluas ke kubus 4x4 (AI satu tahap, andal sampai scramble sekitar 25 gerakan,
+dan percobaan metode reduksi yang hasilnya negatif). Eksperimen itu ditutup supaya proyek fokus
+pada 3x3; kodenya tetap tersimpan di riwayat Git (tag `arsip-4x4`) dan hasilnya dicatat di laporan.

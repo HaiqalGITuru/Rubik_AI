@@ -29,7 +29,7 @@ INVERSE_IDX = np.array([QUARTER_MOVES.index(inverse_move(m)) for m in QUARTER_MO
 def apply_moves_batch(states: np.ndarray, move_idx: np.ndarray, perms: np.ndarray = QUARTER_PERMS) -> np.ndarray:
     """Terapkan satu gerakan berbeda ke setiap state dalam batch.
 
-    states:   (N, S) uint8   (S = 54 untuk 3x3, 96 untuk 4x4)
+    states:   (N, 54) uint8
     move_idx: (N,)    indeks gerakan
     """
     return np.take_along_axis(states, perms[move_idx], axis=1)
@@ -61,7 +61,6 @@ def generate_batch(
     num_scrambles: int,
     max_depth: int,
     rng: np.random.Generator | None = None,
-    puzzle=None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Buat satu batch data training.
 
@@ -71,21 +70,11 @@ def generate_batch(
         depths: (num_scrambles * max_depth,)    int64  -> jarak scramble (1..max_depth)
     """
     rng = rng or np.random.default_rng()
-    if puzzle is None:  # default: kubus 3x3
-        perms, inv, solved = QUARTER_PERMS, INVERSE_IDX, SOLVED_STATE
-    else:               # misalnya NxNPuzzle untuk 4x4
-        perms, inv, solved = puzzle.quarter_perms, puzzle.inverse_idx, puzzle.solved
-    return generate_batch_from(np.tile(solved, (num_scrambles, 1)), max_depth, rng, perms, inv)
-
-
-def generate_batch_from(start_states: np.ndarray, max_depth: int, rng: np.random.Generator,
-                        perms: np.ndarray = QUARTER_PERMS, inv: np.ndarray = INVERSE_IDX):
-    """Sama seperti generate_batch, tetapi titik awal tiap scramble boleh berbeda
-    (dipakai metode reduksi: titik awal = kubus 4x4 tereduksi acak)."""
-    num_scrambles, S = start_states.shape
+    perms, inv, solved = QUARTER_PERMS, INVERSE_IDX, SOLVED_STATE
+    S = len(solved)
     moves = _random_moves(num_scrambles, max_depth, rng, len(perms), inv)
 
-    states = start_states
+    states = np.tile(solved, (num_scrambles, 1))
     X = np.empty((max_depth, num_scrambles, S), dtype=np.uint8)
     y = np.empty((max_depth, num_scrambles), dtype=np.int64)
     for t in range(max_depth):

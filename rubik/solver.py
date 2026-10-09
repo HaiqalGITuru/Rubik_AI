@@ -45,21 +45,13 @@ def _dedupe(states: np.ndarray) -> np.ndarray:
 
 
 @torch.no_grad()
-def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_depth: int = 40,
-                goal_fn=None) -> SolveResult:
-    """goal_fn: fungsi (states (B, S)) -> array bool. Default: kubus selesai.
-    Metode reduksi 4x4 memakai tujuan lain: pusat & tepi tersusun."""
+def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_depth: int = 40) -> SolveResult:
     model.eval()
     t0 = time.perf_counter()
-    goal_fn = goal_fn or _is_solved_batch
-    if goal_fn(cube.state[None])[0]:
+    if cube.is_solved():
         return SolveResult(True, [], 0.0, 0)
 
-    puzzle = getattr(cube, "puzzle", None)  # CubeN (4x4) membawa spesifikasinya sendiri
-    if puzzle is None:
-        perms, inverse_idx, names = QUARTER_PERMS, INVERSE_IDX, QUARTER_MOVES
-    else:
-        perms, inverse_idx, names = puzzle.quarter_perms, puzzle.inverse_idx, puzzle.quarter_moves
+    perms, inverse_idx, names = QUARTER_PERMS, INVERSE_IDX, QUARTER_MOVES
     n_moves = len(names)
 
     states = cube.state[None, :].copy()          # (B, 54)
@@ -87,7 +79,7 @@ def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_d
         new_paths = np.concatenate([paths[parent], move[:, None]], axis=1)
         new_scores = flat[top]
 
-        solved = goal_fn(new_states)
+        solved = _is_solved_batch(new_states)
         if solved.any():
             best = np.flatnonzero(solved)[0]
             moves = [names[i] for i in new_paths[best]]
@@ -100,12 +92,12 @@ def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_d
 
 
 def compress_moves(moves: list[str]) -> list[str]:
-    """Gabungkan gerakan berurutan pada lapisan yang sama: R R -> R2, 2U 2U -> 2U2."""
+    """Gabungkan gerakan berurutan pada wajah yang sama: R R -> R2, R R' -> (hilang)."""
     out: list[tuple[str, int]] = []
     for m in moves:
         if m.endswith("'"):
             face, amount = m[:-1], 3
-        elif len(m) > 1 and m.endswith("2") and not m[:-1].isdigit():
+        elif m.endswith("2"):
             face, amount = m[:-1], 2
         else:
             face, amount = m, 1

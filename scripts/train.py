@@ -6,12 +6,6 @@ Contoh (dari folder root proyek):
     python -m scripts.train --steps 2000         # uji cepat
     python -m scripts.train --resume             # lanjutkan dari checkpoint terakhir
 
-    # Kubus 4x4 (sudut DBL dikunci, 18 gerakan):
-    python -m scripts.train --puzzle 4 --max-depth 30 --save models/cubenet_4x4.pt
-
-    # AI reduksi 4x4 (tahap 1 metode reduksi: pusat + pasangan tepi):
-    python -m scripts.train --puzzle 4 --goal reduce --max-depth 40 --save models/reduksi_4x4.pt
-
     # Model besar di GPU (lihat notebooks/train_colab.ipynb):
     python -m scripts.train --device cuda --hidden1 5000 --hidden2 1000 --blocks 4 \\
         --scrambles 1000 --steps 100000 --cosine --save models/cubenet_large.pt --resume
@@ -32,16 +26,11 @@ import torch.nn.functional as F
 from rubik import Cube
 from rubik.data import generate_batch
 from rubik.model import CubeNet, pick_device, save_model
-from rubik.nxn import CubeN, get_puzzle
-from rubik.reduction import generate_reduction_batch, get_spec, is_reduced_batch, random_reduced_states
 from rubik.solver import beam_search
 
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--puzzle", type=int, default=3, choices=[3, 4], help="ukuran kubus: 3 (3x3) atau 4 (4x4)")
-    p.add_argument("--goal", default="solve", choices=["solve", "reduce"],
-                   help="solve = selesaikan kubus; reduce = AI reduksi 4x4 (pusat + pasangan tepi)")
     p.add_argument("--steps", type=int, default=20_000, help="total langkah training")
     p.add_argument("--scrambles", type=int, default=200, help="jumlah scramble per batch")
     p.add_argument("--max-depth", type=int, default=26, help="panjang scramble (26 = God's number QTM)")
@@ -64,15 +53,15 @@ def parse_args():
     return p.parse_args()
 
 
-def quick_eval(model, rng, depths=(5, 10, 15, 20), n=10, beam_width=64, make_cube=Cube, goal_fn=None):
-    """Persentase scramble yang berhasil diselesaikan (atau direduksi) pada beberapa tingkat kesulitan."""
+def quick_eval(model, rng, depths=(5, 10, 15, 20), n=10, beam_width=64):
+    """Persentase scramble yang berhasil diselesaikan pada beberapa tingkat kesulitan."""
     result = {}
     for d in depths:
         ok = 0
         for _ in range(n):
-            cube = make_cube()
+            cube = Cube()
             cube.scramble(d, rng=rng, quarter_turns_only=True)
-            ok += beam_search(model, cube, beam_width=beam_width, max_depth=d + 10, goal_fn=goal_fn).solved
+            ok += beam_search(model, cube, beam_width=beam_width, max_depth=d + 10).solved
         result[d] = ok / n
     model.train()
     return result
@@ -93,24 +82,6 @@ def main():
     use_amp = device.type == "cuda"  # mixed precision: jauh lebih cepat di GPU
     os.makedirs(os.path.dirname(args.save) or ".", exist_ok=True)
     log_path = os.path.splitext(args.save)[0] + "_log.csv"
-    if args.puzzle == 3:
-        puzzle, make_cube, size_kw = None, Cube, {}
-    else:
-        puzzle = get_puzzle(args.puzzle)
-        make_cube = lambda: CubeN(args.puzzle)
-        size_kw = dict(num_moves=puzzle.num_moves, num_stickers=puzzle.num_stickers)
-
-    goal_fn = None
-    make_batch = lambda: generate_batch(args.scrambles, args.max_depth, rng, puzzle)
-    if args.goal == "reduce":
-        if args.puzzle != 4:
-            raise SystemExit("--goal reduce hanya untuk --puzzle 4")
-        spec = get_spec(4)
-        size_kw["input_idx"] = spec.input_idx.tolist()  # AI reduksi hanya melihat stiker pusat & tepi
-        goal_fn = lambda s: is_reduced_batch(s, spec)
-        make_batch = lambda: generate_reduction_batch(args.scrambles, args.max_depth, rng)
-        # kubus uji: mulai dari kubus tereduksi acak, lalu diacak d gerakan AI
-        make_cube = lambda: CubeN(4, random_reduced_states(1, rng)[0])
 
     start_step = 0
     ckpt = None
@@ -119,7 +90,7 @@ def main():
         model = CubeNet(**ckpt["config"])  # arsitektur mengikuti checkpoint
         model.load_state_dict(ckpt["state_dict"])
     else:
-        model = CubeNet(hidden1=args.hidden1, hidden2=args.hidden2, num_blocks=args.blocks, **size_kw)
+        model = CubeNet(hidden1=args.hidden1, hidden2=args.hidden2, num_blocks=args.blocks)
     model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -139,7 +110,7 @@ def main():
             csv.writer(f).writerow(["step", "loss", "accuracy", "lr", "solve_d5", "solve_d10", "solve_d15", "solve_d20"])
 
     n_params = sum(p.numel() for p in model.parameters())
-    print(f"Kubus {args.puzzle}x{args.puzzle}{' (AI reduksi)' if args.goal == 'reduce' else ''} | parameter model: {n_params:,} | perangkat: {device}"
+    print(f"Parameter model: {n_params:,} | perangkat: {device}"
           f"{' (mixed precision)' if use_amp else f' | thread CPU: {args.threads}'} | "
           f"sampel per batch: {args.scrambles * args.max_depth:,}")
 
@@ -158,7 +129,7 @@ def main():
             for g in optimizer.param_groups:
                 g["lr"] = lr
 
-            X, y, _ = make_batch()
+            X, y, _ = generate_batch(args.scrambles, args.max_depth, rng)
             X = torch.from_numpy(X).to(device, non_blocking=True).long()
             y = torch.from_numpy(y).to(device, non_blocking=True)
 
@@ -181,7 +152,7 @@ def main():
                       f"{args.log_every / dt:.1f} step/dtk | sisa ~{remaining / 60:.0f} mnt", flush=True)
                 eval_row = ["", "", "", ""]
                 if step % args.eval_every == 0:
-                    res = quick_eval(model, rng, make_cube=make_cube, goal_fn=goal_fn)
+                    res = quick_eval(model, rng)
                     print("   evaluasi (tingkat berhasil per jarak scramble): "
                           + "  ".join(f"d{d}={r:.0%}" for d, r in res.items()), flush=True)
                     eval_row = [res[d] for d in (5, 10, 15, 20)]
