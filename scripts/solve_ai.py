@@ -1,11 +1,11 @@
 """
-Selesaikan kubus memakai AI (untuk dicoba dengan kubus fisik).
+Solve a cube with the AI (to try on a physical cube).
 
-    python -m scripts.solve_ai                         # scramble acak
-    python -m scripts.solve_ai "R U R' U' F2 D"        # scramble sendiri
-    python -m scripts.solve_ai --beam 2048 "R U F"     # beam lebih lebar
+    python -m scripts.solve_ai                         # random scramble
+    python -m scripts.solve_ai "R U R' U' F2 D"        # your own scramble
+    python -m scripts.solve_ai --beam 2048 "R U F"     # wider beam
 
-Pegang kubus: PUTIH di atas, HIJAU menghadap Anda, sepanjang scramble & solusi.
+Hold the cube with WHITE on top and GREEN facing you for both the scramble and the solution.
 """
 
 import argparse
@@ -29,20 +29,20 @@ def main():
     else:
         scramble = " ".join(cube.scramble(20))
 
-    print("Pegang kubus: PUTIH di atas, HIJAU menghadap Anda.\n")
-    print("1) Lakukan scramble ini:\n   ", scramble, "\n")
+    print("Hold the cube: WHITE on top, GREEN facing you.\n")
+    print("1) Apply this scramble:\n   ", scramble, "\n")
     print(cube.render())
 
-    print(f"\nAI sedang berpikir (beam {args.beam})...")
+    print(f"\nThe AI is thinking (beam {args.beam})...")
     res = beam_search(load_model(args.model), cube, beam_width=args.beam)
     if not res.solved:
-        print(f"AI belum berhasil ({res.time_sec:.1f} dtk). Coba --beam lebih besar atau latih model lebih lama.")
+        print(f"The AI did not find a solution ({res.time_sec:.1f} s). Try a larger --beam or train the model longer.")
         return
 
     sol = compress_moves(res.moves)
-    print(f"\n2) Lakukan solusi AI ini ({len(sol)} langkah, {res.time_sec:.2f} dtk, "
-          f"{res.nodes:,} state dievaluasi):\n   ", " ".join(sol))
-    print("\nVerifikasi di simulator:", "SELESAI" if cube.apply_sequence(sol).is_solved() else "GAGAL")
+    print(f"\n2) Apply the AI's solution ({len(sol)} moves, {res.time_sec:.2f} s, "
+          f"{res.nodes:,} states evaluated):\n   ", " ".join(sol))
+    print("\nSimulator check:", "SOLVED" if cube.apply_sequence(sol).is_solved() else "FAILED")
 
 
 if __name__ == "__main__":

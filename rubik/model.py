@@ -1,11 +1,11 @@
 """
-Jaringan saraf untuk memprediksi gerakan berikutnya.
+Neural network that predicts the next move.
 
-Input : state kubus, 54 angka warna (0..5) -> diubah ke one-hot (324)
-Output: 12 logit, satu untuk setiap gerakan seperempat (U, U', R, R', ...)
+Input : cube state, 54 color values (0..5) -> converted to one-hot (324)
+Output: 12 logits, one per quarter turn (U, U', R, R', ...)
 
-Arsitektur: MLP dengan residual block (mirip EfficientCube / DeepCubeA,
-tapi diperkecil supaya bisa dilatih di CPU laptop).
+Architecture: an MLP with residual blocks (similar to EfficientCube / DeepCubeA,
+but scaled down so it can be trained on a laptop CPU).
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class CubeNet(nn.Module):
         self.output = nn.Linear(hidden2, num_moves)
 
     def forward(self, states: torch.Tensor) -> torch.Tensor:
-        """states: LongTensor (B, stiker) berisi warna 0..5 -> logits (B, jumlah gerakan)"""
+        """states: LongTensor (B, stickers) with colors 0..5 -> logits (B, number of moves)"""
         x = F.one_hot(states.long(), num_classes=6).float().flatten(1)
         x = self.input(x)
         x = self.blocks(x)
@@ -55,7 +55,7 @@ def save_model(model: CubeNet, path: str, **extra) -> None:
 
 
 def pick_device(name: str = "auto") -> torch.device:
-    """'auto' -> GPU (cuda) kalau tersedia, selain itu CPU."""
+    """'auto' -> GPU (cuda) if available, otherwise CPU."""
     if name == "auto":
         name = "cuda" if torch.cuda.is_available() else "cpu"
     return torch.device(name)

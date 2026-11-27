@@ -1,4 +1,4 @@
-"""Test generator data & solver (tidak butuh model terlatih)."""
+"""Tests for the data generator and solvers (no trained model needed)."""
 
 import numpy as np
 import pytest
@@ -9,14 +9,14 @@ from rubik.moves import QUARTER_MOVES
 from rubik.solver import compress_moves
 
 
-def test_bentuk_batch():
+def test_batch_shapes():
     X, y, d = generate_batch(8, 26, np.random.default_rng(0))
     assert X.shape == (8 * 26, 54) and y.shape == (8 * 26,) and d.shape == (8 * 26,)
     assert y.min() >= 0 and y.max() < 12
 
 
-def test_label_membawa_ke_state_sebelumnya():
-    """Menerapkan label pada state ke-t harus menghasilkan state ke-(t-1)."""
+def test_label_leads_back_to_previous_state():
+    """Applying the label to state t must give state t-1."""
     n, depth = 16, 10
     X, y, _ = generate_batch(n, depth, np.random.default_rng(1))
     X, y = X.reshape(depth, n, 54), y.reshape(depth, n)
@@ -26,7 +26,7 @@ def test_label_membawa_ke_state_sebelumnya():
         assert np.array_equal(back, expected)
 
 
-def test_apply_moves_batch_sama_dengan_cube():
+def test_apply_moves_batch_matches_cube():
     for i, m in enumerate(QUARTER_MOVES):
         c = Cube().apply_sequence("R U F")
         batch = apply_moves_batch(c.state[None], np.array([i]))
@@ -38,7 +38,7 @@ def test_compress_moves():
     assert compress_moves(["R", "R", "R"]) == ["R'"]
 
 
-def test_beam_search_dengan_model_acak():
+def test_beam_search_with_random_model():
     torch = pytest.importorskip("torch")
     from rubik.model import CubeNet
     from rubik.solver import beam_search
@@ -47,12 +47,12 @@ def test_beam_search_dengan_model_acak():
     model = CubeNet(hidden1=64, hidden2=32, num_blocks=1)
     cube = Cube().apply_sequence("R U")
     res = beam_search(model, cube, beam_width=200, max_depth=4)
-    assert res.solved  # beam 200 cukup untuk mencakup semua jalur 2 langkah
+    assert res.solved  # a beam of 200 covers every 2-move path
     assert cube.apply_sequence(res.moves).is_solved()
 
 
-def test_benchmark_deterministik():
-    """Set kubus uji harus selalu sama untuk seed yang sama."""
+def test_benchmark_is_deterministic():
+    """The benchmark set must be identical for the same seed."""
     from rubik.benchmark import create_benchmark
     a, b = create_benchmark(5), create_benchmark(5)
     assert [c["scramble"] for c in a["cubes"]] == [c["scramble"] for c in b["cubes"]]
@@ -61,7 +61,7 @@ def test_benchmark_deterministik():
 
 
 class _ConstModel:
-    """Model palsu: selalu memprediksi jarak `c` (untuk menguji DeepCubeA tanpa training)."""
+    """Fake model that always predicts distance `c` (to test DeepCubeA without training)."""
 
     def __init__(self, c=0.0):
         import torch
@@ -82,17 +82,17 @@ class _ConstModel:
 def test_davi_target():
     from rubik.deepcubea import davi_targets
     states = np.stack([Cube().state, Cube().apply("R").state, Cube().apply_sequence("R U").state])
-    # Dengan prediksi jarak 5 untuk semua anak (kecuali yang selesai = 0):
+    # With a predicted distance of 5 for every child (except solved ones = 0):
     t = davi_targets(_ConstModel(5.0), states)
-    assert t[0] == 0.0          # sudah selesai
-    assert t[1] == 1.0          # satu gerakan lagi -> anak selesai -> 1 + 0
-    assert t[2] == 6.0          # tidak ada anak yang selesai -> 1 + 5
+    assert t[0] == 0.0          # already solved
+    assert t[1] == 1.0          # one move away -> a child is solved -> 1 + 0
+    assert t[2] == 6.0          # no child is solved -> 1 + 5
 
 
-def test_weighted_astar_menemukan_solusi():
+def test_weighted_astar_finds_solution():
     pytest.importorskip("torch")
     from rubik.deepcubea import weighted_astar
     cube = Cube().apply_sequence("R U F'")
     res = weighted_astar(_ConstModel(0.0), cube, batch_size=2000, weight=1.0)
-    assert res.solved and len(res.moves) == 3   # h=0, weight=1 -> pencarian optimal
+    assert res.solved and len(res.moves) == 3   # h=0, weight=1 -> optimal search
     assert cube.apply_sequence(res.moves).is_solved()

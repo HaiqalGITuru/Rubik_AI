@@ -1,4 +1,4 @@
-"""Paket simulator kubus rubik 3x3."""
+"""3x3 Rubik's cube simulator package."""
 
 from .cube import Cube, SOLVED_STATE
 from .moves import (

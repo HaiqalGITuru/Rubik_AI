@@ -1,4 +1,4 @@
-"""Demo simulator. Jalankan dari folder root proyek:  python -m scripts.demo"""
+"""Simulator demo. Run from the project root:  python -m scripts.demo"""
 
 import time
 
@@ -11,44 +11,44 @@ def main():
     rng = np.random.default_rng()
 
     cube = Cube()
-    print("Kubus selesai:\n")
+    print("Solved cube:\n")
     print(cube.render())
 
     scramble = cube.scramble(20, rng=rng)
     print("\nScramble:", " ".join(scramble), "\n")
     print(cube.render())
-    print("\nSelesai?", cube.is_solved())
+    print("\nSolved?", cube.is_solved())
 
-    # "Curang": selesaikan dengan membalik scramble (hanya untuk mengecek simulator)
+    # "Cheat": solve by reversing the scramble (only to check the simulator)
     cube.apply_sequence(invert_sequence(scramble))
-    print("\nSetelah membalik scramble, selesai?", cube.is_solved())
+    print("\nAfter reversing the scramble, solved?", cube.is_solved())
 
-    # Pembanding (baseline) non-AI: Kociemba two-phase
+    # Non-AI baseline: Kociemba two-phase
     try:
         import kociemba
 
-        # Catatan: ini acakan BARU (berbeda dari di atas), hanya untuk
-        # mengukur kecepatan Kociemba. Untuk uji coba dengan kubus fisik,
-        # gunakan:  python -m scripts.solve
+        # Note: this is a NEW scramble (different from the one above), only to
+        # measure Kociemba's speed. To try it on a physical cube,
+        # use:  python -m scripts.solve
         cube = Cube()
         scramble = cube.scramble(25, rng=rng)
-        print("\nScramble baru untuk Kociemba:", " ".join(scramble))
+        print("\nNew scramble for Kociemba:", " ".join(scramble))
         t0 = time.perf_counter()
         solution = kociemba.solve(cube.to_facelet_string())
         dt = (time.perf_counter() - t0) * 1000
         n = len(solution.split())
-        print(f"\nKociemba: {n} langkah dalam {dt:.1f} ms -> {solution}")
+        print(f"\nKociemba: {n} moves in {dt:.1f} ms -> {solution}")
         print("Valid?", cube.apply_sequence(solution).is_solved())
     except ImportError:
-        print("\n(Install 'kociemba' untuk melihat pembanding: pip install kociemba)")
+        print("\n(Install 'kociemba' to see the baseline: pip install kociemba)")
 
-    # Kecepatan simulator (penting saat membuat data training)
+    # Simulator speed (matters when generating training data)
     cube = Cube()
     t0 = time.perf_counter()
     for _ in range(100_000):
         cube.apply("R")
     dt = time.perf_counter() - t0
-    print(f"\nKecepatan simulator: {100_000 / dt:,.0f} gerakan/detik")
+    print(f"\nSimulator speed: {100_000 / dt:,.0f} moves/second")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-metode,beam,kubus,berhasil_persen,langkah_rata2,langkah_median,langkah_min,langkah_maks,selisih_vs_kociemba,waktu_rata2_dtk,waktu_maks_dtk,posisi_dievaluasi_rata2
-DeepCubeA N= 100,100,100,22.0,20.73,21.0,18,23,0.18,4.292,5.148,368954
-DeepCubeA N= 1000,1000,100,91.0,21.14,21.0,18,24,0.45,20.461,54.957,1562731
+method,beam,cubes,solved_pct,mean_length,median_length,min_length,max_length,gap_vs_kociemba,mean_time_sec,max_time_sec,mean_nodes
+DeepCubeA N=100,100,100,22.0,20.73,21.0,18,23,0.18,4.292,5.148,368954
+DeepCubeA N=1000,1000,100,91.0,21.14,21.0,18,24,0.45,20.461,54.957,1562731
 Kociemba,,100,100.0,20.7,21.0,18,22,0,0.0137,0.1144,

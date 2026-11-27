@@ -1,13 +1,13 @@
-// Visualisasi jaringan saraf dengan aktivasi ASLI dari model.
-// Input: 54 stiker kubus. Tersembunyi: sampel neuron dari setiap lapisan.
-// Output: probabilitas 12 gerakan; gerakan yang dipilih AI disorot.
+// Neural network visualization using REAL activations from the model.
+// Input: the cube's 54 stickers. Hidden: a sample of neurons from every layer.
+// Output: probabilities of the 12 moves; the move the AI picks is highlighted.
 
 import { COLORS } from './cube3d.js';
 
 const INK = '#18202C';
 const MUTED = '#8A93A3';
 const RULE = '#DFE4EB';
-const SIGNAL = [36, 83, 232]; // biru sinyal
+const SIGNAL = [36, 83, 232]; // signal blue
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -20,18 +20,18 @@ export class NetworkView {
     this.configure(config, false);
     this.prev = null;
     this.frame = null;
-    this.wave = 1;                          // 0..1, posisi gelombang sinyal kiri -> kanan
+    this.wave = 1;                          // 0..1, position of the signal wave, left -> right
     this.waveMs = 700;
     new ResizeObserver(() => this.resize()).observe(canvas);
     this.resize();
     requestAnimationFrame(t => this.loop(t));
   }
 
-  // Atur model yang divisualisasikan
+  // Set the model being visualized
   configure({ moves, layerSizes, showNeurons, size = 3 }, relayout = true) {
-    this.moves = moves;                     // 12 gerakan
-    this.layerSizes = layerSizes;           // ukuran asli, misal [324, 1024, 512, 512, 512, 12]
-    this.showNeurons = showNeurons;         // jumlah neuron yang digambar per lapisan tersembunyi
+    this.moves = moves;                     // 12 moves
+    this.layerSizes = layerSizes;           // real sizes, e.g. [324, 1024, 512, 512, 512, 12]
+    this.showNeurons = showNeurons;         // neurons drawn per hidden layer
     this.size = size;
     this.prev = null;
     this.frame = null;
@@ -68,7 +68,7 @@ export class NetworkView {
     this.outputs = this.moves.map((_, i) => ({ x: this.outputBox.x, y: this.outputBox.top + rowH * (i + 0.5), h: rowH }));
   }
 
-  // Tampilkan frame baru: {input, hidden: [[...]], output: [...], chosen?}
+  // Show a new frame: {input, hidden: [[...]], output: [...], chosen?}
   show(frame, durationMs = 700) {
     this.prev = this.frame;
     this.frame = frame;
@@ -84,7 +84,7 @@ export class NetworkView {
     requestAnimationFrame(tt => this.loop(tt));
   }
 
-  // Seberapa jauh gelombang sudah melewati kolom ke-k (0..1), kolom: input, hidden..., output
+  // How far the wave has passed column k (0..1); columns: input, hidden..., output
   reached(k) {
     const total = this.cols.length + 2;
     return Math.max(0, Math.min(1, this.wave * total - k));
@@ -102,14 +102,14 @@ export class NetworkView {
     ctx.font = '500 11px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textBaseline = 'middle';
 
-    // Judul kolom (ukuran lapisan asli)
+    // Column titles (real layer sizes)
     ctx.fillStyle = MUTED;
     ctx.textAlign = 'center';
-    ctx.fillText(`${6 * this.size * this.size} stiker`, this.inputBox.x + this.inputBox.w / 2, 14);
+    ctx.fillText(`${6 * this.size * this.size} stickers`, this.inputBox.x + this.inputBox.w / 2, 14);
     this.cols.forEach((col, c) => {
-      ctx.fillText(this.layerSizes[c + 1].toLocaleString('id-ID'), col[0].x, 14);
+      ctx.fillText(this.layerSizes[c + 1].toLocaleString('en-US'), col[0].x, 14);
     });
-    ctx.fillText(`${this.moves.length} gerakan`, this.outputBox.x + this.outputBox.w / 2, 14);
+    ctx.fillText(`${this.moves.length} moves`, this.outputBox.x + this.outputBox.w / 2, 14);
 
     this.drawEdges();
     this.drawInput();
@@ -129,7 +129,7 @@ export class NetworkView {
   drawEdges() {
     const { ctx } = this;
     ctx.lineWidth = 1;
-    // input -> lapisan pertama: garis dari tepi kotak input
+    // input -> first layer: lines from the edge of the input box
     const first = this.cols[0];
     const ix = this.inputBox.x + this.inputBox.w + 4;
     first.forEach((p, i) => {
@@ -150,7 +150,7 @@ export class NetworkView {
         });
       });
     }
-    // lapisan terakhir -> output
+    // last layer -> output
     const last = this.cols[this.cols.length - 1];
     const out = this.frame ? this.frame.output : null;
     const r = this.reached(this.cols.length + 1);
@@ -168,7 +168,7 @@ export class NetworkView {
   drawInput() {
     const { ctx } = this;
     const state = this.frame ? this.frame.input : null;
-    // Jaring kubus mini: U di atas, L F R B di tengah, D di bawah
+    // Mini cube net: U on top, L F R B in the middle, D at the bottom
     const n = this.size, nn = n * n;
     const cell = Math.max(3, Math.floor(this.inputBox.w / (4 * n)));
     const netW = cell * 4 * n, netH = cell * 3 * n;

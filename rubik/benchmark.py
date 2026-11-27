@@ -1,10 +1,10 @@
 """
-Set kubus uji (benchmark) yang TETAP, dipakai oleh semua eksperimen.
+A FIXED benchmark set of test cubes, shared by every experiment.
 
-Dengan kubus yang persis sama, perbandingan antar eksperimen (lebar beam,
-model kecil vs besar, EfficientCube vs DeepCubeA) menjadi adil dan bisa diulang.
+Using exactly the same cubes makes comparisons between experiments (beam width,
+small vs. large model, EfficientCube vs. DeepCubeA) fair and reproducible.
 
-File disimpan di benchmarks/benchmark_<n>.json dan sebaiknya ikut di-commit ke Git.
+The file is stored at benchmarks/benchmark_<n>.json and should be committed to Git.
 """
 
 from __future__ import annotations
@@ -26,13 +26,13 @@ def benchmark_path(n: int) -> Path:
 
 
 def create_benchmark(n: int = 100, depth: int = 25, seed: int = 2026) -> dict:
-    """Buat n kubus teracak penuh (depth gerakan HTM) + solusi Kociemba sebagai pembanding."""
+    """Create n fully scrambled cubes (depth HTM moves) plus Kociemba's solution as a baseline."""
     try:
         import kociemba
     except ImportError:
         kociemba = None
 
-    if kociemba:  # panggilan pertama memuat tabel (lambat), jangan ikut terukur
+    if kociemba:  # the first call loads lookup tables (slow); keep it out of the timing
         kociemba.solve(Cube().apply_sequence("R U").to_facelet_string())
 
     rng = np.random.default_rng(seed)
@@ -58,5 +58,5 @@ def load_or_create_benchmark(n: int = 100) -> dict:
     BENCH_DIR.mkdir(exist_ok=True)
     bench = create_benchmark(n)
     path.write_text(json.dumps(bench, indent=1))
-    print(f"Set kubus uji baru dibuat: {path}")
+    print(f"New benchmark set created: {path}")
     return bench

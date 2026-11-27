@@ -1,0 +1,12 @@
+method,setting,solved_pct,mean_length,median_length,gap_vs_kociemba,mean_time_sec,mean_nodes
+EfficientCube small,256,77.0,29.64,30.0,9.0,0.076,7413
+EfficientCube small,1024,100.0,27.39,27.0,6.69,0.09,24957
+EfficientCube small,4096,100.0,25.68,25.5,4.98,0.273,89032
+EfficientCube small,16384,100.0,23.72,24.0,3.02,0.928,315008
+EfficientCube large,256,100.0,23.18,23.0,2.48,0.079,5196
+EfficientCube large,1024,100.0,22.21,22.0,1.51,0.212,19243
+EfficientCube large,4096,100.0,21.5,21.0,0.8,0.679,71052
+EfficientCube large,16384,100.0,21.01,21.0,0.31,2.791,267162
+DeepCubeA large,100,22.0,20.73,21.0,0.18,4.292,368954
+DeepCubeA large,1000,91.0,21.14,21.0,0.45,20.461,1562731
+Kociemba,,100,20.7,21.0,0,0.0137,

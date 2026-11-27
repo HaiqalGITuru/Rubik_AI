@@ -1,10 +1,10 @@
-// Kubus rubik 3D (Three.js).
-// Konvensi sama dengan simulator Python: x -> kanan (R), y -> atas (U), z -> depan (F).
-// Gerakan searah jarum jam (dilihat dari wajahnya) = rotasi -90 derajat terhadap normal wajah.
+// 3D Rubik's cube (Three.js).
+// Same conventions as the Python simulator: x -> right (R), y -> up (U), z -> front (F).
+// A clockwise move (seen from its face) = a -90 degree rotation about the face normal.
 
 import * as THREE from 'three';
 
-// Urutan warna sama dengan Python: 0=putih(U) 1=merah(R) 2=hijau(F) 3=kuning(D) 4=oranye(L) 5=biru(B)
+// Same color order as Python: 0=white(U) 1=red(R) 2=green(F) 3=yellow(D) 4=orange(L) 5=blue(B)
 export const COLORS = ['#FFFFFF', '#D7262E', '#14A050', '#FFD21F', '#FF7A1A', '#1E5BD8'];
 const FACES = 'URFDLB';
 const NORMALS = {
@@ -13,8 +13,8 @@ const NORMALS = {
 };
 const TOKEN = /^(\d*)([URFDLBurfdlbxyz])(w?)(['2]?)$/;
 
-// Indeks stiker dari posisi kubus kecil (koordinat digandakan) + arah hadap,
-// sama persis dengan rubik/moves.py.
+// Sticker index from a cubie position (doubled coordinates) + facing direction,
+// exactly as in rubik/moves.py.
 export function stickerIndex(n, [x, y, z], [nx, ny, nz]) {
   const m = n - 1;
   let face, row, col;
@@ -42,7 +42,7 @@ function roundedSquare(size, radius) {
 }
 
 const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-const snapHalf = v => Math.round(v * 2) / 2;  // bulatkan posisi ke kelipatan 0,5
+const snapHalf = v => Math.round(v * 2) / 2;  // round positions to multiples of 0.5
 
 export class RubikCube extends THREE.Group {
   constructor(n = 3) {
@@ -56,7 +56,7 @@ export class RubikCube extends THREE.Group {
     this.reset(n);
   }
 
-  // Bangun ulang kubus dalam keadaan selesai.
+  // Rebuild the cube in its solved state.
   reset(n = this.n) {
     this.n = n;
     this.queue.forEach(job => job.resolve());
@@ -70,13 +70,13 @@ export class RubikCube extends THREE.Group {
       for (let j = 0; j < n; j++)
         for (let k = 0; k < n; k++) {
           const [x, y, z] = [i - h, j - h, k - h];
-          if (Math.abs(x) < h && Math.abs(y) < h && Math.abs(z) < h) continue; // bagian dalam, tak terlihat
+          if (Math.abs(x) < h && Math.abs(y) < h && Math.abs(z) < h) continue; // interior, never visible
           const cubie = new THREE.Group();
           cubie.position.set(x, y, z);
           cubie.add(new THREE.Mesh(this.bodyGeo, this.bodyMat));
           for (const nv of Object.values(NORMALS)) {
             const along = nv[0] * x + nv[1] * y + nv[2] * z;
-            if (Math.abs(along - h) > 1e-6) continue; // stiker hanya di permukaan luar
+            if (Math.abs(along - h) > 1e-6) continue; // stickers only on the outer surface
             const color = colorOfNormal(nv);
             const sticker = new THREE.Mesh(this.stickerGeo, this.stickerMats[color]);
             const normal = new THREE.Vector3(...nv);
@@ -91,10 +91,10 @@ export class RubikCube extends THREE.Group {
         }
   }
 
-  // Ubah token notasi menjadi {sumbu, lapisan, sudut}. Mendukung U, U', U2, 2U, Uw, u, 3Rw, x/y/z.
+  // Turn a notation token into {axis, layers, angle}. Supports U, U', U2, 2U, Uw, u, 3Rw, x/y/z.
   _parse(token) {
     const mt = TOKEN.exec(token);
-    if (!mt) throw new Error(`Gerakan tidak valid: ${token}`);
+    if (!mt) throw new Error(`Invalid move: ${token}`);
     let [, num, face, wide, suffix] = mt;
     const turns = suffix === '2' ? 2 : suffix === "'" ? -1 : 1;
     let layers;
@@ -110,7 +110,7 @@ export class RubikCube extends THREE.Group {
     return { axis: new THREE.Vector3(...NORMALS[face]), levels: layers.map(l => h - (l - 1)), angle: -turns * Math.PI / 2 };
   }
 
-  // Tambahkan gerakan ke antrian animasi. durationMs = 0 berarti langsung.
+  // Queue a move for animation. durationMs = 0 means instant.
   move(notation, durationMs = 300) {
     return new Promise(resolve => {
       this.queue.push({ notation, durationMs, resolve });
@@ -146,7 +146,7 @@ export class RubikCube extends THREE.Group {
     resolve();
   }
 
-  // Dipanggil setiap frame dengan selisih waktu (ms)
+  // Called every frame with the elapsed time (ms)
   update(dt) {
     for (;;) {
       if (!this.active) {
@@ -169,18 +169,18 @@ export class RubikCube extends THREE.Group {
 
   _index(mesh, cubie) {
     const nrm = mesh.userData.normal.clone().applyQuaternion(cubie.quaternion).round();
-    const p = cubie.position.clone().multiplyScalar(2).round(); // koordinat digandakan
+    const p = cubie.position.clone().multiplyScalar(2).round(); // doubled coordinates
     return stickerIndex(this.n, p.toArray(), nrm.toArray());
   }
 
-  // Baca warna stiker (format sama dengan state di Python)
+  // Read sticker colors (same format as the Python state)
   getState() {
     const state = new Array(6 * this.n * this.n);
     for (const { mesh, cubie } of this.stickers) state[this._index(mesh, cubie)] = mesh.userData.color;
     return state;
   }
 
-  // Warnai ulang semua stiker sesuai state dari server
+  // Recolor every sticker from a state sent by the server
   setState(state) {
     for (const { mesh, cubie } of this.stickers) {
       const color = state[this._index(mesh, cubie)];

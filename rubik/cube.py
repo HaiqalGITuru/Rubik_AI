@@ -1,9 +1,9 @@
 """
-Simulator kubus rubik 3x3 berbasis representasi stiker (54 elemen).
+3x3 Rubik's cube simulator based on a sticker representation (54 elements).
 
-Warna (skema standar):
-    0 = putih (U), 1 = merah (R), 2 = hijau (F),
-    3 = kuning (D), 4 = oranye (L), 5 = biru (B)
+Colors (standard scheme):
+    0 = white (U), 1 = red (R), 2 = green (F),
+    3 = yellow (D), 4 = orange (L), 5 = blue (B)
 """
 
 from __future__ import annotations
@@ -14,12 +14,12 @@ from .moves import ALL_MOVES, FACES, MOVE_PERMS, QUARTER_MOVES, parse_sequence
 
 COLOR_NAMES = ["W", "R", "G", "Y", "O", "B"]
 _ANSI = {
-    0: "\033[97m",          # putih
-    1: "\033[91m",          # merah
-    2: "\033[92m",          # hijau
-    3: "\033[93m",          # kuning
-    4: "\033[38;5;208m",    # oranye
-    5: "\033[94m",          # biru
+    0: "\033[97m",          # white
+    1: "\033[91m",          # red
+    2: "\033[92m",          # green
+    3: "\033[93m",          # yellow
+    4: "\033[38;5;208m",    # orange
+    5: "\033[94m",          # blue
 }
 _RESET = "\033[0m"
 
@@ -33,28 +33,28 @@ class Cube:
         else:
             state = np.asarray(state, dtype=np.uint8)
             if state.shape != (54,):
-                raise ValueError("State harus berukuran 54")
+                raise ValueError("State must have 54 elements")
             self.state = state.copy()
 
     # ------------------------------------------------------------------ #
-    # Operasi dasar
+    # Basic operations
     # ------------------------------------------------------------------ #
     def copy(self) -> "Cube":
         return Cube(self.state)
 
     def apply(self, move: str) -> "Cube":
-        """Terapkan satu gerakan (in-place). Mengembalikan self agar bisa di-chain."""
+        """Apply one move (in place). Returns self so calls can be chained."""
         self.state = self.state[MOVE_PERMS[move]]
         return self
 
     def apply_sequence(self, seq: str | list[str]) -> "Cube":
-        """Terapkan urutan gerakan, contoh: cube.apply_sequence("R U R' U'")."""
+        """Apply a move sequence, e.g. cube.apply_sequence("R U R' U'")."""
         for m in parse_sequence(seq):
             self.state = self.state[MOVE_PERMS[m]]
         return self
 
     def is_solved(self) -> bool:
-        # Tiap wajah harus satu warna (tidak bergantung orientasi kubus)
+        # Every face must be a single color (independent of cube orientation)
         faces = self.state.reshape(6, 9)
         return bool(np.all(faces == faces[:, [4]]))
 
@@ -64,10 +64,10 @@ class Cube:
         rng: np.random.Generator | None = None,
         quarter_turns_only: bool = False,
     ) -> list[str]:
-        """Acak kubus sebanyak n_moves. Mengembalikan daftar gerakan yang dipakai.
+        """Scramble the cube with n_moves moves. Returns the list of moves used.
 
-        Gerakan pada wajah yang sama berturut-turut dihindari (misal U lalu U'),
-        karena itu hanya membuang langkah.
+        Consecutive moves on the same face (e.g. U then U') are avoided,
+        because they only waste moves.
         """
         rng = rng or np.random.default_rng()
         pool = QUARTER_MOVES if quarter_turns_only else ALL_MOVES
@@ -83,26 +83,26 @@ class Cube:
         return moves
 
     # ------------------------------------------------------------------ #
-    # Konversi (berguna untuk machine learning & pembanding)
+    # Conversions (for machine learning and baselines)
     # ------------------------------------------------------------------ #
     def to_one_hot(self) -> np.ndarray:
-        """Vektor one-hot berukuran 54 x 6 = 324, siap jadi input jaringan saraf."""
+        """One-hot vector of size 54 x 6 = 324, ready to feed into a neural network."""
         return np.eye(6, dtype=np.float32)[self.state].reshape(-1)
 
     def to_facelet_string(self) -> str:
-        """Format string Kociemba, misal 'UUUUUUUUURRR...'.
+        """Kociemba facelet string, e.g. 'UUUUUUUUURRR...'.
 
-        Bisa langsung dipakai: kociemba.solve(cube.to_facelet_string())
+        Can be used directly: kociemba.solve(cube.to_facelet_string())
         """
         centers = self.state.reshape(6, 9)[:, 4]
         color_to_face = {int(c): FACES[i] for i, c in enumerate(centers)}
         return "".join(color_to_face[int(c)] for c in self.state)
 
     # ------------------------------------------------------------------ #
-    # Tampilan
+    # Display
     # ------------------------------------------------------------------ #
     def render(self, color: bool = True) -> str:
-        """Tampilkan jaring (net) kubus:
+        """Render the cube net:
 
                 U
               L F R B

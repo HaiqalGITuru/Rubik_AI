@@ -1,13 +1,13 @@
 """
-Uji coba solver dengan kubus FISIK.
+Try the Kociemba solver on a PHYSICAL cube.
 
-Pemakaian (dari folder root proyek):
-    python -m scripts.solve                      # buat scramble acak
-    python -m scripts.solve "R U R' U' F2 D"     # pakai scramble sendiri
+Usage (from the project root):
+    python -m scripts.solve                      # random scramble
+    python -m scripts.solve "R U R' U' F2 D"     # your own scramble
 
-Cara memegang kubus SELAMA scramble DAN solusi (jangan diputar seluruhnya!):
-    - Putih di ATAS, hijau menghadap ANDA (depan)
-    - Maka merah di kanan, oranye di kiri, biru di belakang, kuning di bawah
+How to hold the cube DURING both the scramble AND the solution (do not rotate the whole cube!):
+    - White on TOP, green facing YOU (front)
+    - Then red is on the right, orange on the left, blue at the back, yellow at the bottom
 """
 
 import sys
@@ -27,21 +27,21 @@ def main():
     else:
         scramble = " ".join(cube.scramble(20))
 
-    print("Pegang kubus: PUTIH di atas, HIJAU menghadap Anda.")
-    print("Mulai dari kubus yang SUDAH SELESAI.\n")
-    print("1) Lakukan scramble ini:")
+    print("Hold the cube: WHITE on top, GREEN facing you.")
+    print("Start from a SOLVED cube.\n")
+    print("1) Apply this scramble:")
     print("   ", scramble, "\n")
-    print("Kubus Anda sekarang harus terlihat seperti ini:")
-    print("(U=atas, F=depan, R=kanan, B=belakang, L=kiri, D=bawah)\n")
+    print("Your cube should now look like this:")
+    print("(U=up, F=front, R=right, B=back, L=left, D=down)\n")
     print(cube.render())
 
     t0 = time.perf_counter()
     solution = kociemba.solve(cube.to_facelet_string())
     dt = (time.perf_counter() - t0) * 1000
 
-    print(f"\n2) Lakukan solusi ini ({len(solution.split())} langkah, {dt:.1f} ms):")
+    print(f"\n2) Apply this solution ({len(solution.split())} moves, {dt:.1f} ms):")
     print("   ", solution)
-    print("\nVerifikasi di simulator:", "SELESAI" if cube.apply_sequence(solution).is_solved() else "GAGAL")
+    print("\nSimulator check:", "SOLVED" if cube.apply_sequence(solution).is_solved() else "FAILED")
 
 
 if __name__ == "__main__":

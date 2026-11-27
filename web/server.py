@@ -1,12 +1,12 @@
 """
-Server lokal untuk website Rubik AI (kubus 3x3).
+Local server for the Rubik AI website (3x3 cube).
 
-Jalankan dari folder root proyek:
+Run from the project root:
     python -m web.server
-    python -m web.server --model models/cubenet_large_infer.pt      # model lain
-lalu buka http://127.0.0.1:8000 (browser terbuka otomatis).
+    python -m web.server --model models/cubenet_large_infer.pt      # another model
+then open http://127.0.0.1:8000 (the browser opens automatically).
 
-Server hanya mendengarkan di 127.0.0.1, jadi hanya bisa diakses dari laptop Anda sendiri.
+The server only listens on 127.0.0.1, so it is reachable from your own machine only.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from rubik.solver import beam_search
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = Path(__file__).resolve().parent / "static"
 
-# Jumlah neuron yang ditampilkan per lapisan tersembunyi (sampel dari ribuan neuron asli)
+# Neurons shown per hidden layer (a sample of the thousands of real neurons)
 SHOW_NEURONS = [20, 18, 18, 18]
 
 try:
@@ -48,7 +48,7 @@ except ImportError:
 # ---------------------------------------------------------------------- #
 @torch.no_grad()
 def forward_with_activations(model: CubeNet, states: np.ndarray):
-    """Forward pass yang juga mengembalikan aktivasi 4 lapisan tersembunyi."""
+    """Forward pass that also returns the activations of the 4 hidden layers."""
     x = F.one_hot(torch.from_numpy(states).long(), num_classes=6).float().flatten(1)
     h1 = model.input[:3](x)
     h = model.input[3:](h1)
@@ -64,7 +64,7 @@ def forward_with_activations(model: CubeNet, states: np.ndarray):
 
 
 class Bundle:
-    """Model beserta semua yang dibutuhkan website."""
+    """The model plus everything the website needs."""
 
     def __init__(self, path: Path):
         ckpt = torch.load(path, map_location="cpu")
@@ -84,7 +84,7 @@ class Bundle:
         self._pick_neurons()
 
     def _pick_neurons(self):
-        """Pilih neuron yang paling 'hidup' (variansi tertinggi) pada kubus acak."""
+        """Pick the most 'active' neurons (highest variance) on random cubes."""
         rng = np.random.default_rng(0)
         states = []
         for _ in range(512):
@@ -113,16 +113,16 @@ BUNDLE: Bundle | None = None
 
 def get_bundle() -> Bundle:
     if BUNDLE is None:
-        raise HTTPException(503, "Model belum dimuat. Latih dulu: python -m scripts.train")
+        raise HTTPException(503, "Model not loaded. Train one first: python -m scripts.train")
     return BUNDLE
 
 
 # ---------------------------------------------------------------------- #
-# Utilitas solusi
+# Solution helpers
 # ---------------------------------------------------------------------- #
 def group_moves(raw: list[str]):
-    """Gabungkan gerakan seperempat berurutan pada wajah yang sama (R R -> R2).
-    Mengembalikan list (notasi, indeks gerakan mentah pertama di grup)."""
+    """Merge consecutive quarter turns on the same face (R R -> R2).
+    Returns a list of (notation, index of the first raw move in the group)."""
     groups: list[list] = []
     for i, m in enumerate(raw):
         base, amount = (m[:-1], 3) if m.endswith("'") else (m, 1)
@@ -136,7 +136,7 @@ def group_moves(raw: list[str]):
 
 
 def normalize_tokens(text: str) -> list[str]:
-    """Rapikan tanda petik & huruf kecil: "r2'" -> "R2", "u" -> "U"."""
+    """Normalize quote marks and lowercase letters: "r2'" -> "R2", "u" -> "U"."""
     text = text.replace("’", "'").replace("`", "'").replace("′", "'").replace(",", " ")
     return parse_sequence([t[0].upper() + t[1:].replace("2'", "2") for t in text.split()])
 
@@ -149,7 +149,7 @@ app = FastAPI(title="Rubik AI")
 
 @app.middleware("http")
 async def no_cache(request, call_next):
-    """Supaya browser selalu memuat app.js/style.css terbaru (tidak perlu Ctrl+Shift+R)."""
+    """Make the browser always load the latest app.js/style.css (no Ctrl+Shift+R needed)."""
     response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -164,7 +164,7 @@ class ParseRequest(BaseModel):
 
 
 class SolveRequest(BaseModel):
-    moves: list[str] = Field(default_factory=list, description="semua gerakan sejak kubus selesai")
+    moves: list[str] = Field(default_factory=list, description="all moves since the cube was solved")
     beam: int = Field(1024, ge=16, le=16384)
 
 
@@ -190,15 +190,15 @@ def parse(req: ParseRequest):
     try:
         moves = normalize_tokens(req.text)
     except ValueError as e:
-        raise HTTPException(400, f"{e}. Gunakan U D R L F B dengan akhiran ' atau 2, dipisah spasi.")
+        raise HTTPException(400, f"{e}. Use U D R L F B with an optional ' or 2, separated by spaces.")
     if not moves:
-        raise HTTPException(400, "Scramble masih kosong. Tulis gerakan seperti R U R' U'.")
+        raise HTTPException(400, "The scramble is empty. Type moves like R U R' U'.")
     return {"moves": moves}
 
 
 @app.post("/api/analyze")
 def analyze(req: SolveRequest):
-    """Aktivasi jaringan untuk kubus saat ini (tanpa mencari solusi)."""
+    """Network activations for the current cube (without searching for a solution)."""
     b = get_bundle()
     try:
         cube = Cube().apply_sequence(req.moves)
@@ -226,10 +226,10 @@ def solve(req: SolveRequest):
     res = beam_search(b.model, cube, beam_width=req.beam, max_depth=40)
     if not res.solved:
         return {"solved": False, "message": (
-            f"AI belum menemukan solusi dengan lebar pencarian {req.beam} ({res.time_sec:.1f} dtk). "
-            f"Coba pilih yang lebih lebar.")}
+            f"The AI did not find a solution with search width {req.beam} ({res.time_sec:.1f} s). "
+            f"Try a wider search.")}
 
-    # Semua state di sepanjang jalur solusi (sebelum setiap gerakan + state akhir)
+    # Every state along the solution path (before each move + the final state)
     states = [cube.state]
     for m in res.moves:
         states.append(states[-1][b.perms[b.moves.index(m)]])
@@ -283,12 +283,12 @@ def main():
 
     path = Path(args.model) if Path(args.model).is_absolute() else ROOT / args.model
     if not path.exists():
-        raise SystemExit(f"Model tidak ditemukan: {path}. Latih dulu: python -m scripts.train")
-    print(f"Memuat model: {path.name} ...")
+        raise SystemExit(f"Model not found: {path}. Train one first: python -m scripts.train")
+    print(f"Loading model: {path.name} ...")
     BUNDLE = Bundle(path)
 
     url = f"http://127.0.0.1:{args.port}"
-    print(f"Website siap di {url}  (tekan Ctrl+C untuk berhenti)")
+    print(f"Website ready at {url}  (press Ctrl+C to stop)")
     if not args.no_browser:
         threading.Timer(1.5, lambda: webbrowser.open(url)).start()
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")

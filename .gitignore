@@ -5,6 +5,10 @@ venv/
 .pytest_cache/
 .ipynb_checkpoints/
 models/*.pt
+# the default model used by the website is kept in the repo (36 MB) so a fresh clone works
+!models/cubenet.pt
 models/*.pth
 data/*
 !data/.gitkeep
+
+.vscode/

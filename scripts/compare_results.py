@@ -1,15 +1,15 @@
 """
-Bandingkan beberapa hasil eksperimen dalam satu grafik dan satu tabel.
+Compare several experiment results in one chart and one table.
 
     python -m scripts.compare_results \\
-        beam_experiment_small_gpu:"EfficientCube kecil" \\
-        beam_experiment_large:"EfficientCube besar" \\
-        deepcubea_large:"DeepCubeA besar"
+        beam_experiment_small_gpu:"EfficientCube small" \\
+        beam_experiment_large:"EfficientCube large" \\
+        deepcubea_large:"DeepCubeA large"
 
-Setiap argumen = <nama folder di results/>:<label>. Bandingkan hanya hasil dari perangkat
-yang sama (misalnya semua GPU Colab), karena waktu berpikir bergantung pada perangkat keras.
+Each argument = <folder name under results/>:<label>. Only compare results from the same
+hardware (e.g. all on a Colab GPU), because thinking time depends on the hardware.
 
-Hasil: results/perbandingan/perbandingan.png dan perbandingan.csv
+Output: results/comparison/comparison.png and comparison.csv
 """
 
 import argparse
@@ -22,8 +22,8 @@ COLORS = ["#A9B3C2", "#2453E8", "#E8762D", "#14A050", "#8E44AD"]
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("runs", nargs="+", help="nama_folder:label")
-    p.add_argument("--out", default="perbandingan")
+    p.add_argument("runs", nargs="+", help="folder_name:label")
+    p.add_argument("--out", default="comparison")
     args = p.parse_args()
 
     import matplotlib
@@ -43,48 +43,48 @@ def main():
         with open(ROOT / "results" / name / "summary.csv", newline="") as f:
             summary = list(csv.DictReader(f))
         configs = [s for s in summary if s["beam"]]
-        if kociemba is None:  # semua hasil memakai 100 kubus uji yang sama
-            kociemba = next((s for s in summary if s["metode"] == "Kociemba"), None)
+        if kociemba is None:  # every run uses the same 100 test cubes
+            kociemba = next((s for s in summary if s["method"] == "Kociemba"), None)
         color = COLORS[i % len(COLORS)]
 
-        ok = [s for s in configs if s["langkah_rata2"]]
-        t = [float(s["waktu_rata2_dtk"]) for s in ok]
-        ax1.plot(t, [float(s["langkah_rata2"]) for s in ok], "o-", color=color, label=label)
+        ok = [s for s in configs if s["mean_length"]]
+        t = [float(s["mean_time_sec"]) for s in ok]
+        ax1.plot(t, [float(s["mean_length"]) for s in ok], "o-", color=color, label=label)
         for s, x in zip(ok, t):
-            ax1.annotate(s["beam"], (x, float(s["langkah_rata2"])), textcoords="offset points",
+            ax1.annotate(s["beam"], (x, float(s["mean_length"])), textcoords="offset points",
                          xytext=(4, 5), fontsize=7, color=color)
-        ax2.plot([float(s["waktu_rata2_dtk"]) for s in configs],
-                 [float(s["berhasil_persen"]) for s in configs], "o-", color=color, label=label)
+        ax2.plot([float(s["mean_time_sec"]) for s in configs],
+                 [float(s["solved_pct"]) for s in configs], "o-", color=color, label=label)
         for s in configs:
-            rows.append({"metode": label, "pengaturan": s["beam"], **{k: s[k] for k in (
-                "berhasil_persen", "langkah_rata2", "langkah_median", "selisih_vs_kociemba",
-                "waktu_rata2_dtk", "posisi_dievaluasi_rata2")}})
+            rows.append({"method": label, "setting": s["beam"], **{k: s[k] for k in (
+                "solved_pct", "mean_length", "median_length", "gap_vs_kociemba",
+                "mean_time_sec", "mean_nodes")}})
 
     if kociemba:
-        kl = float(kociemba["langkah_rata2"])
+        kl = float(kociemba["mean_length"])
         ax1.axhline(kl, color="#667085", ls="--", lw=1, label=f"Kociemba ({kl})")
-        rows.append({"metode": "Kociemba", "pengaturan": "", "berhasil_persen": 100,
-                     "langkah_rata2": kl, "langkah_median": kociemba["langkah_median"],
-                     "selisih_vs_kociemba": 0, "waktu_rata2_dtk": kociemba["waktu_rata2_dtk"],
-                     "posisi_dievaluasi_rata2": ""})
+        rows.append({"method": "Kociemba", "setting": "", "solved_pct": 100,
+                     "mean_length": kl, "median_length": kociemba["median_length"],
+                     "gap_vs_kociemba": 0, "mean_time_sec": kociemba["mean_time_sec"],
+                     "mean_nodes": ""})
 
-    ax1.set_xscale("log"); ax1.set_xlabel("Waktu berpikir rata-rata (detik, log)")
-    ax1.set_ylabel("Panjang solusi rata-rata (HTM)"); ax1.set_title("Kualitas solusi vs waktu")
+    ax1.set_xscale("log"); ax1.set_xlabel("Mean thinking time (seconds, log)")
+    ax1.set_ylabel("Mean solution length (HTM)"); ax1.set_title("Solution quality vs time")
     ax1.legend(frameon=False, fontsize=8)
-    ax2.set_xscale("log"); ax2.set_xlabel("Waktu berpikir rata-rata (detik, log)")
-    ax2.set_ylabel("Berhasil (%)"); ax2.set_ylim(0, 105); ax2.set_title("Tingkat keberhasilan vs waktu")
+    ax2.set_xscale("log"); ax2.set_xlabel("Mean thinking time (seconds, log)")
+    ax2.set_ylabel("Solved (%)"); ax2.set_ylim(0, 105); ax2.set_title("Success rate vs time")
     fig.tight_layout()
-    fig.savefig(out_dir / "perbandingan.png")
+    fig.savefig(out_dir / "comparison.png")
 
-    with open(out_dir / "perbandingan.csv", "w", newline="") as f:
+    with open(out_dir / "comparison.csv", "w", newline="") as f:
         w = csv.DictWriter(f, list(rows[0].keys()))
         w.writeheader(); w.writerows(rows)
 
-    print(f"{'Metode':<24}{'Atur':>7}{'Berhasil':>10}{'Langkah':>9}{'Waktu':>11}")
+    print(f"{'Method':<24}{'Setting':>8}{'Solved':>9}{'Moves':>9}{'Time':>11}")
     for r in rows:
-        print(f"{r['metode']:<24}{r['pengaturan']:>7}{float(r['berhasil_persen']):>9.0f}%"
-              f"{str(r['langkah_rata2'] or '-'):>9}{float(r['waktu_rata2_dtk']):>9.3f} dtk")
-    print(f"\nTersimpan di {out_dir}")
+        print(f"{r['method']:<24}{r['setting']:>8}{float(r['solved_pct']):>8.0f}%"
+              f"{str(r['mean_length'] or '-'):>9}{float(r['mean_time_sec']):>9.3f} s")
+    print(f"\nSaved in {out_dir}")
 
 
 if __name__ == "__main__":

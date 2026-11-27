@@ -1,15 +1,15 @@
 """
-DeepCubeA (Agostinelli dkk., 2019), versi yang diperkecil.
+DeepCubeA (Agostinelli et al., 2019), scaled-down version.
 
-Perbedaan utama dengan EfficientCube:
-    - EfficientCube : jaringan memprediksi GERAKAN (policy, 12 kelas) -> beam search
-    - DeepCubeA     : jaringan memprediksi JARAK ke kondisi selesai (value / cost-to-go, 1 angka)
+Main difference from EfficientCube:
+    - EfficientCube : the network predicts a MOVE (policy, 12 classes) -> beam search
+    - DeepCubeA     : the network predicts the DISTANCE to solved (value / cost-to-go, 1 number)
                       -> batch weighted A* search
 
-Training memakai Deep Approximate Value Iteration (DAVI):
-    target(s) = 0                                   jika s sudah selesai
-    target(s) = min_a [ 1 + J_target(anak(s, a)) ]  selain itu
-dengan J_target = salinan jaringan "lama" yang diperbarui berkala (target network).
+Training uses Deep Approximate Value Iteration (DAVI):
+    target(s) = 0                                    if s is solved
+    target(s) = min_a [ 1 + J_target(child(s, a)) ]  otherwise
+where J_target is an "older" copy of the network, refreshed periodically (target network).
 """
 
 from __future__ import annotations
@@ -32,13 +32,13 @@ def is_solved_batch(states: np.ndarray) -> np.ndarray:
 
 
 def expand(states: np.ndarray) -> np.ndarray:
-    """Semua anak dari setiap state: (N, 54) -> (N, 12, 54)."""
+    """All children of every state: (N, 54) -> (N, 12, 54)."""
     return states[:, QUARTER_PERMS]
 
 
 @torch.no_grad()
 def predict_cost(model: torch.nn.Module, states: np.ndarray, batch: int = 32768) -> np.ndarray:
-    """Perkiraan jumlah langkah menuju selesai (>= 0) untuk setiap state."""
+    """Estimated number of moves to solved (>= 0) for every state."""
     device = next(model.parameters()).device
     out = []
     for i in range(0, len(states), batch):
@@ -49,7 +49,7 @@ def predict_cost(model: torch.nn.Module, states: np.ndarray, batch: int = 32768)
 
 @torch.no_grad()
 def davi_targets(target_model: torch.nn.Module, states: np.ndarray) -> np.ndarray:
-    """Target DAVI: min atas 12 gerakan dari (1 + perkiraan jarak anak). State selesai -> 0."""
+    """DAVI target: min over the 12 moves of (1 + estimated distance of the child). Solved state -> 0."""
     n = len(states)
     children = expand(states).reshape(-1, 54)
     cost = predict_cost(target_model, children)
@@ -70,18 +70,18 @@ def weighted_astar(
 ) -> SolveResult:
     """Batch Weighted A* (BWAS).
 
-    Prioritas setiap posisi: f = weight * g + h
-        g = jumlah langkah yang sudah ditempuh, h = perkiraan jarak dari jaringan.
-    weight < 1 membuat pencarian lebih "rakus" (cepat, solusi sedikit lebih panjang).
-    Setiap iterasi, `batch_size` posisi dengan f terkecil dikembangkan sekaligus,
-    sehingga jaringan bisa mengevaluasi banyak anak dalam satu batch.
+    Priority of every position: f = weight * g + h
+        g = moves taken so far, h = distance estimated by the network.
+    weight < 1 makes the search greedier (faster, slightly longer solutions).
+    Every iteration expands the `batch_size` positions with the smallest f at once,
+    so the network can evaluate many children in one batch.
     """
     model.eval()
     t0 = time.perf_counter()
     if cube.is_solved():
         return SolveResult(True, [], 0.0, 0)
 
-    # Penyimpanan node: state (bytes), induk, gerakan, g
+    # Node storage: state (bytes), parent, move, g
     node_state: list[bytes] = [cube.state.tobytes()]
     node_parent = [-1]
     node_move = [-1]
@@ -99,7 +99,7 @@ def weighted_astar(
         return moves[::-1]
 
     for _ in range(max_iterations):
-        # Ambil batch_size node terbaik (lewati entri usang yang sudah punya g lebih kecil)
+        # Take the best batch_size nodes (skip stale entries that already have a smaller g)
         batch = []
         while open_heap and len(batch) < batch_size:
             _, idx = heapq.heappop(open_heap)
@@ -112,7 +112,7 @@ def weighted_astar(
         children = expand(parents).reshape(-1, 54)
         solved = is_solved_batch(children)
 
-        # Saring anak yang sudah pernah dicapai dengan g yang sama atau lebih kecil
+        # Skip children already reached with the same or a smaller g
         keep, keys, gs, par, mv = [], [], [], [], []
         for k in range(len(children)):
             p = batch[k // NUM_MOVES]

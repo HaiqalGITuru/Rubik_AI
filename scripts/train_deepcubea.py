@@ -1,12 +1,12 @@
 """
-Training DeepCubeA dengan Deep Approximate Value Iteration (DAVI).
+Train DeepCubeA with Deep Approximate Value Iteration (DAVI).
 
-Contoh:
-    python -m scripts.train_deepcubea --steps 2000                       # uji cepat di CPU (model kecil)
+Examples:
+    python -m scripts.train_deepcubea --steps 2000                       # quick CPU test (small model)
     python -m scripts.train_deepcubea --device cuda --hidden1 5000 --hidden2 1000 --blocks 4 \\
         --scrambles 400 --steps 50000 --cosine --save models/deepcubea_large.pt --resume
 
-Bisa dihentikan (Ctrl+C / tombol stop Colab) dan dilanjutkan dengan --resume.
+Can be stopped (Ctrl+C / Colab stop button) and resumed with --resume.
 """
 
 import argparse
@@ -29,13 +29,13 @@ from rubik.model import CubeNet, pick_device, save_model
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--steps", type=int, default=20_000)
-    p.add_argument("--scrambles", type=int, default=200, help="scramble per batch (x max-depth = jumlah posisi)")
-    p.add_argument("--max-depth", type=int, default=30, help="panjang scramble maksimum (paper: 30)")
+    p.add_argument("--scrambles", type=int, default=200, help="scrambles per batch (x max-depth = number of positions)")
+    p.add_argument("--max-depth", type=int, default=30, help="maximum scramble length (paper: 30)")
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--cosine", action="store_true")
     p.add_argument("--min-lr", type=float, default=1e-5)
     p.add_argument("--update-every", type=int, default=1000,
-                   help="salin jaringan ke target network setiap N langkah")
+                   help="copy the network into the target network every N steps")
     p.add_argument("--hidden1", type=int, default=1024)
     p.add_argument("--hidden2", type=int, default=512)
     p.add_argument("--blocks", type=int, default=4)
@@ -99,7 +99,7 @@ def main():
         if "scaler" in ckpt and use_amp:
             scaler.load_state_dict(ckpt["scaler"])
         start_step, updates = ckpt["step"], ckpt.get("target_updates", 0)
-        print(f"Melanjutkan dari langkah {start_step}")
+        print(f"Resuming from step {start_step}")
 
     rng = np.random.default_rng(args.seed + start_step)
     if start_step == 0:
@@ -108,8 +108,8 @@ def main():
                                     "solve_d5", "solve_d10", "solve_d15", "solve_d20"])
 
     n_params = sum(p.numel() for p in model.parameters())
-    print(f"DeepCubeA | parameter: {n_params:,} | perangkat: {device}"
-          f"{' (mixed precision)' if use_amp else ''} | posisi per batch: {args.scrambles * args.max_depth:,}")
+    print(f"DeepCubeA | parameters: {n_params:,} | device: {device}"
+          f"{' (mixed precision)' if use_amp else ''} | positions per batch: {args.scrambles * args.max_depth:,}")
 
     def checkpoint(step):
         save_model(model, args.save, optimizer=optimizer.state_dict(), scaler=scaler.state_dict(),
@@ -145,7 +145,7 @@ def main():
             tmean_sum += float(y.mean())
             tmax = max(tmax, float(y.max()))
 
-            if step % args.update_every == 0:  # perbarui target network
+            if step % args.update_every == 0:  # refresh the target network
                 target.load_state_dict(model.state_dict())
                 updates += 1
 
@@ -153,13 +153,13 @@ def main():
                 dt = time.perf_counter() - t_log
                 la, tm = loss_sum / args.log_every, tmean_sum / args.log_every
                 remaining = (args.steps - step) * dt / args.log_every
-                print(f"step {step:>6} | loss {la:.4f} | target rata2 {tm:5.2f} maks {tmax:5.1f} | "
-                      f"update target {updates} | lr {lr:.1e} | {args.log_every / dt:.1f} step/dtk | "
-                      f"sisa ~{remaining / 60:.0f} mnt", flush=True)
+                print(f"step {step:>6} | loss {la:.4f} | target mean {tm:5.2f} max {tmax:5.1f} | "
+                      f"target updates {updates} | lr {lr:.1e} | {args.log_every / dt:.1f} steps/s | "
+                      f"~{remaining / 60:.0f} min left", flush=True)
                 ev = ["", "", "", ""]
                 if step % args.eval_every == 0:
                     res = quick_eval(model, rng)
-                    print("   evaluasi (tingkat berhasil per jarak scramble): "
+                    print("   evaluation (success rate per scramble depth): "
                           + "  ".join(f"d{d}={r:.0%}" for d, r in res.items()), flush=True)
                     ev = [res[d] for d in (5, 10, 15, 20)]
                     checkpoint(step)
@@ -169,10 +169,10 @@ def main():
                 tmax = 0.0
                 t_log = time.perf_counter()
     except KeyboardInterrupt:
-        print("\nTraining dihentikan.")
+        print("\nTraining stopped.")
 
     checkpoint(step)
-    print(f"Model disimpan di {args.save} (langkah {step})")
+    print(f"Model saved to {args.save} (step {step})")
 
 
 if __name__ == "__main__":

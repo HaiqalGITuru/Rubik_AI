@@ -1,14 +1,14 @@
 """
-Solver berbasis beam search yang dipandu jaringan saraf.
+Beam search solver guided by a neural network.
 
-Cara kerja:
-    1. Mulai dari state teracak (beam berisi 1 kandidat).
-    2. Untuk setiap kandidat di beam, model memberi probabilitas 12 gerakan.
-    3. Skor kandidat baru = jumlah log-probabilitas sepanjang jalurnya.
-    4. Simpan hanya `beam_width` kandidat terbaik, buang state duplikat.
-    5. Ulangi sampai ada kandidat yang selesai atau mencapai max_depth.
+How it works:
+    1. Start from the scrambled state (the beam holds 1 candidate).
+    2. For every candidate in the beam, the model gives probabilities for the 12 moves.
+    3. Score of a new candidate = sum of log-probabilities along its path.
+    4. Keep only the best `beam_width` candidates and drop duplicate states.
+    5. Repeat until a candidate is solved or max_depth is reached.
 
-Beam lebih lebar = lebih akurat & solusi lebih pendek, tapi lebih lambat.
+A wider beam = more reliable and shorter solutions, but slower.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ class SolveResult:
     solved: bool
     moves: list[str]
     time_sec: float
-    nodes: int  # jumlah state yang dievaluasi model
+    nodes: int  # number of states evaluated by the model
 
 
 def _is_solved_batch(states: np.ndarray) -> np.ndarray:
@@ -38,7 +38,7 @@ def _is_solved_batch(states: np.ndarray) -> np.ndarray:
 
 
 def _dedupe(states: np.ndarray) -> np.ndarray:
-    """Indeks baris unik (kemunculan pertama dipertahankan)."""
+    """Indices of unique rows (first occurrence kept)."""
     keys = np.ascontiguousarray(states).view(np.dtype((np.void, states.shape[1]))).ravel()
     _, idx = np.unique(keys, return_index=True)
     return np.sort(idx)
@@ -58,7 +58,7 @@ def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_d
     paths = np.zeros((1, 0), dtype=np.int64)     # (B, depth)
     scores = np.zeros(1, dtype=np.float64)       # (B,)
     nodes = 0
-    device = next(model.parameters()).device     # CPU atau GPU, mengikuti model
+    device = next(model.parameters()).device     # CPU or GPU, wherever the model lives
 
     for _ in range(max_depth):
         x = torch.from_numpy(states).to(device).long()
@@ -66,13 +66,13 @@ def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_d
         nodes += len(states)
 
         cand = scores[:, None] + logp            # (B, 12)
-        if paths.shape[1] > 0:                   # larang membatalkan gerakan terakhir
+        if paths.shape[1] > 0:                   # forbid undoing the last move
             cand[np.arange(len(states)), inverse_idx[paths[:, -1]]] = -np.inf
 
         flat = cand.ravel()
         k = min(beam_width, np.isfinite(flat).sum())
         top = np.argpartition(-flat, k - 1)[:k]
-        top = top[np.argsort(-flat[top])]        # urutkan dari skor terbaik
+        top = top[np.argsort(-flat[top])]        # sort by best score first
 
         parent, move = top // n_moves, top % n_moves
         new_states = np.take_along_axis(states[parent], perms[move], axis=1)
@@ -92,7 +92,7 @@ def beam_search(model: torch.nn.Module, cube: Cube, beam_width: int = 256, max_d
 
 
 def compress_moves(moves: list[str]) -> list[str]:
-    """Gabungkan gerakan berurutan pada wajah yang sama: R R -> R2, R R' -> (hilang)."""
+    """Merge consecutive moves on the same face: R R -> R2, R R' -> (removed)."""
     out: list[tuple[str, int]] = []
     for m in moves:
         if m.endswith("'"):
